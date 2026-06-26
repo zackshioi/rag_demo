@@ -28,9 +28,10 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 **Goal:** the git + GitHub Actions baseline so every later phase ships through a gate.
 **Proves:** change control is real, not aspirational. See `DEVELOPMENT_RULES.md`.
 
-- [ ] `git init`; push to GitHub remote; protect `main` (PR required, no direct push)
-- [ ] `.gitignore` (Python, `.env`, AWS creds, data caches)
-- [ ] Project layout (`src/`, `evals/`, `infra/`, `.github/workflows/`)
+- [x] `git init`; push to GitHub remote (`zackshioi/rag_demo`) — ⬜ still to do: protect `main` (PR required, no direct push) via GitHub Settings
+- [x] `.gitignore` (Python, `.env`, AWS creds, data caches)
+- [x] Project layout (`src/policy_copilot`, `tests/`, `evals/`, `infra/`, `prompts/`, `.github/workflows/`)
+- [x] Python env via **uv** (Python 3.12 pinned, `pyproject.toml` + `uv.lock`); dev tools ruff/black/mypy/pytest — all green
 - [ ] GitHub Actions: `ci.yml` (lint + unit tests on every PR)
 - [ ] GitHub Actions: `eval.yml` (golden-set eval gate — wired in Phase 6)
 - [ ] Secrets via GitHub OIDC → AWS role (no long-lived keys)
