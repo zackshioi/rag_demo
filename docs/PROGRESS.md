@@ -32,7 +32,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 - [x] `.gitignore` (Python, `.env`, AWS creds, data caches)
 - [x] Project layout (`src/policy_copilot`, `tests/`, `evals/`, `infra/`, `prompts/`, `.github/workflows/`)
 - [x] Python env via **uv** (Python 3.12 pinned, `pyproject.toml` + `uv.lock`); dev tools ruff/black/mypy/pytest — all green
-- [ ] GitHub Actions: `ci.yml` (lint + unit tests on every PR)
+- [x] GitHub Actions: `ci.yml` (ruff + black + mypy + pytest via uv, on every PR) — merged in PR #1
 - [ ] GitHub Actions: `eval.yml` (golden-set eval gate — wired in Phase 6)
 - [ ] Secrets via GitHub OIDC → AWS role (no long-lived keys)
 
@@ -46,8 +46,8 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 **Proves:** baseline retrieve+answer works end-to-end, locally, near-zero cost.
 **Cost:** ~US$1–5 (API only). **Demo:** CLI — question → cited answer.
 
-- [ ] Load `llmware/rag_instruct_benchmark_tester`; inspect 6 categories
-- [ ] Dedup `context` column → local document corpus
+- [x] Load `llmware/rag_instruct_benchmark_tester`; inspect 6 categories (`src/policy_copilot/data.py`) — real labels: `core`/`not_found_classification`/`boolean`/`math_basic`/`complex_qa`/`summary`
+- [x] Dedup `context` column → local document corpus (200 rows → 51 docs)
 - [ ] Build FAISS index (embed chunks)
 - [ ] `Anthropic` messages loop: retrieve → ground → answer with citations
 - [ ] Refusal behaviour when retrieval is empty/weak (F-5)

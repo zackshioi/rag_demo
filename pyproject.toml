@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Citation-grounded RAG agent for regulated banking (portfolio demonstrator)."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "datasets>=5.0.0",
+]
 
 [dependency-groups]
 dev = [
@@ -36,6 +38,10 @@ target-version = ["py312"]
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["datasets.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

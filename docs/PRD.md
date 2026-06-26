@@ -205,20 +205,22 @@ All five mandatory pillars, AWS-native, Sydney-resident. See `ARCHITECTURE.md` f
 
 ## 10. Data Plan
 
-**Source:** HuggingFace `llmware/rag_instruct_benchmark_tester` — 200 enterprise Q&A samples (financial news, earnings, legal contracts, employment agreements, invoices). Each row: `query`, `context`, `answer`, `category`.
+**Source:** HuggingFace `llmware/rag_instruct_benchmark_tester` — 200 enterprise Q&A samples (financial news, earnings, legal contracts, employment agreements, invoices). Each row: `query`, `context`, `answer`, `category` (+ `sample_number`, `tokens`). Single `train` split.
 
-| Category | Count | Use in this project |
+> **Category labels (verified against the data — differ from the early draft):**
+
+| Category (real label) | Count | Use in this project |
 |---|---|---|
-| core_qa | 100 | Baseline accuracy + faithfulness |
-| not_found | 20 | **Refusal-rate** evaluation (the key trust metric) |
-| boolean | 20 | Yes/no faithfulness |
-| math | 20 | **Numeric correctness** within tolerance |
-| complex_qa | 20 | Multi-fact reasoning faithfulness |
-| summary | 20 | Summarisation grounding |
+| `core` | 100 | Baseline accuracy + faithfulness |
+| `not_found_classification` | 20 | **Refusal-rate** evaluation (the key trust metric) |
+| `boolean` | 20 | Yes/no faithfulness |
+| `math_basic` | 20 | **Numeric correctness** within tolerance |
+| `complex_qa` | 20 | Multi-fact reasoning faithfulness |
+| `summary` | 20 | Summarisation grounding |
 
 **The dual-use `context` trick** — the inline `context` column is reused two ways:
 
-1. **Corpus build:** `context` values are **deduplicated** and loaded to S3 as the document corpus that the Knowledge Base chunks, embeds, and indexes. This is what retrieval searches.
+1. **Corpus build:** `context` values are **deduplicated** and loaded to S3 as the document corpus that the Knowledge Base chunks, embeds, and indexes. This is what retrieval searches. **Verified: 200 rows → 51 unique documents.**
 2. **Ground-truth for evaluation:** the same `context` (per row) is the **gold retrieved context**, enabling RAGAS `context_recall` / `context_precision` — we can measure whether retrieval found the *right* passage, not just *a* passage.
 
 This gives a self-contained corpus **and** a retrieval ground truth from one dataset — no separate labelling. `not_found` rows deliberately pose questions the corpus cannot answer, exercising refusal behaviour. **No real PII** is used; Guardrails are validated against synthetic PII injected into test queries.
@@ -246,9 +248,9 @@ See `PROGRESS.md` Phase 6 for execution tracking and `GOVERNANCE.md` for tooling
 
 | Test | Dataset slice | Metric | Threshold |
 |---|---|---|---|
-| **Refusal** *(most important)* | `not_found` (20) | Refusal precision — said "NOT FOUND" instead of hallucinating | **≥ 0.95** |
-| **Numeric correctness** | `math` (20) | Figure correct within tolerance, quoted from source | **≥ 0.90** |
-| Baseline accuracy | `core_qa` (100) | Accuracy + faithfulness | acc ≥ 0.80, faith ≥ 0.75 |
+| **Refusal** *(most important)* | `not_found_classification` (20) | Refusal precision — said "NOT FOUND" instead of hallucinating | **≥ 0.95** |
+| **Numeric correctness** | `math_basic` (20) | Figure correct within tolerance, quoted from source | **≥ 0.90** |
+| Baseline accuracy | `core` (100) | Accuracy + faithfulness | acc ≥ 0.80, faith ≥ 0.75 |
 | Boolean correctness | `boolean` (20) | Exact-match yes/no | ≥ 0.85 |
 
 **Offline (CI gate, GitHub Actions):** the full 200-row golden set runs on every PR; any threshold regression blocks merge (§8.2). Results attach to the model card.
