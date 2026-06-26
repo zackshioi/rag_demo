@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets / credentials — never commit
+.env
+.env.*
+*.pem
+.aws/
+credentials
+
+# Data & build artifacts (corpus, vector indexes, caches)
+data/
+*.faiss
+*.index
+.cache/
+*.duckdb
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
