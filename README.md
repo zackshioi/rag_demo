@@ -53,9 +53,11 @@ Offline as a CI gate; online on 5% sampled traffic written back to traces. Detai
 
 ## Data
 
-[`llmware/rag_instruct_benchmark_tester`](https://huggingface.co/datasets/llmware/rag_instruct_benchmark_tester) — 200 enterprise Q&A samples across 6 categories (core_qa 100, not_found 20, boolean 20, math 20, complex_qa 20, summary 20).
+**Primary corpus — [FinanceBench](https://huggingface.co/datasets/PatronusAI/financebench)** (`PatronusAI/financebench`): 150 expert-written (CFA) Q&A over **real SEC filings** (10-K/10-Q/8-K/earnings). License CC-BY-NC-4.0 — demonstrator only. For a cost-aware demo we use a reproducible **lean subset of 8 filings** (~1,583 pages, 40 questions) — real "needle-in-a-haystack" retrieval. PDFs parsed locally with `pymupdf4llm` (Phase 1), by Bedrock KB on AWS (Phase 4).
 
-**Dual-use `context` trick:** the inline `context` column is reused two ways — deduped into the document corpus (to build the Knowledge Base) **and** as ground-truth context (to evaluate retrieval recall/precision). One dataset, self-contained corpus + retrieval ground truth, no extra labelling.
+**Dual-use evidence:** each row's `evidence` (gold supporting text) doubles as retrieval ground-truth (context recall/precision + citation checks), while the full filings form the searchable corpus.
+
+**Refusal slice:** FinanceBench has no labelled unanswerable questions, so the [`llmware`](https://huggingface.co/datasets/llmware/rag_instruct_benchmark_tester) `not_found_classification` set (20 rows) is retained purely as the refusal-precision test.
 
 ---
 

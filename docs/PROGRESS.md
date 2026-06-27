@@ -46,14 +46,18 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 **Proves:** baseline retrieve+answer works end-to-end, locally, near-zero cost.
 **Cost:** ~US$1–5 (API only). **Demo:** CLI — question → cited answer.
 
-- [x] Load `llmware/rag_instruct_benchmark_tester`; inspect 6 categories (`src/policy_copilot/data.py`) — real labels: `core`/`not_found_classification`/`boolean`/`math_basic`/`complex_qa`/`summary`
-- [x] Dedup `context` column → local document corpus (200 rows → 51 docs)
-- [ ] Build FAISS index (embed chunks)
-- [ ] `Anthropic` messages loop: retrieve → ground → answer with citations
-- [ ] Refusal behaviour when retrieval is empty/weak (F-5)
-- [ ] CLI demo script
+- [x] **Primary dataset: FinanceBench** (`src/policy_copilot/financebench.py`) — 150 Q&A over real SEC filings
+- [x] Lean subset: 8 filings downloaded + parsed with `pymupdf4llm` → Markdown, cached (1,583 pages / 40 questions)
+- [x] llmware loader retained (`src/policy_copilot/data.py`) for the `not_found` refusal slice (Phase 6)
+- [x] Exploration notebooks (`notebooks/explore_financebench.ipynb`, `explore_data.ipynb`)
+- [ ] Chunking (split filings into retrievable passages) — F1.3
+- [ ] Build FAISS index (embed chunks) — F1.4
+- [ ] `search_documents` retrieval function — F1.5
+- [ ] `Anthropic` messages loop: retrieve → ground → answer with citations — F1.6 (needs Anthropic API key)
+- [ ] Refusal behaviour when retrieval is empty/weak (F-5) — F1.7
+- [ ] CLI demo script — F1.8
 
-**Exit criteria:** cited answers on `core_qa` samples; refuses on obvious out-of-scope.
+**Exit criteria:** cited answers on FinanceBench questions; refuses on out-of-scope / `not_found`.
 
 ---
 
