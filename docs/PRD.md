@@ -27,7 +27,7 @@ The governing thesis of this project: **AI failures in regulated industries come
 | Goal | Metric | Target |
 |---|---|---|
 | Faithful answers | RAGAS faithfulness (offline + online) | **≥ 0.75** |
-| Correct refusals | Refusal precision on `not_found` set | **≥ 0.95** |
+| Correct refusals | Refusal precision on out-of-corpus questions | **≥ 0.95** |
 | Numeric integrity | Numeric correctness within tolerance (`math` set) | **≥ 0.90** |
 | Retrieval quality | RAGAS context_recall / context_precision | **≥ 0.70 / ≥ 0.70** |
 | Responsiveness | End-to-end p95 latency | **≤ 6 s** |
@@ -71,7 +71,7 @@ The governing thesis of this project: **AI failures in regulated industries come
 - Authn/authz, SSO, and document-level entitlement enforcement (assumed provided by host platform — see §14)
 - Multilingual corpus (English only)
 - Fine-tuning / custom model training (RAG + prompting only)
-- Real customer PII data — demonstrator uses public benchmarks (FinanceBench + llmware refusal slice, §10)
+- Real customer PII data — demonstrator uses the public FinanceBench benchmark (§10)
 
 ---
 
@@ -83,7 +83,7 @@ The governing thesis of this project: **AI failures in regulated industries come
 | F-2 | Retrieval is invoked via **tool use / function calling** (`search_documents(query, k)` → ranked chunks with source IDs). |
 | F-3 | Every non-refusal answer carries **≥1 citation** resolving to source chunk text and document ID. |
 | F-4 | **Numeric facts are quoted verbatim** from retrieved source spans; the model must not compute or paraphrase figures it cannot point to. Math answers cite the source span used. |
-| F-5 | If retrieved context does not support an answer, the system responds **"NOT FOUND / I don't know"** rather than guessing (out-of-scope and `not_found` cases). |
+| F-5 | If retrieved context does not support an answer, the system responds **"NOT FOUND / I don't know"** rather than guessing (out-of-scope / out-of-corpus cases). |
 | F-6 | **Guardrails** redact PII and block denied topics on both input and output. |
 | F-7 | Each request emits an **audit record**: timestamp, user, question, model+version, prompt/config version, retrieved source IDs, tool calls, final answer, guardrail events. |
 | F-8 | Answers degrade gracefully: retrieval empty → refusal; tool error → safe error message, never a fabricated answer. |
@@ -217,7 +217,7 @@ All five mandatory pillars, AWS-native, Sydney-resident. See `ARCHITECTURE.md` f
 
 **Governance slices:**
 - Faithfulness, numeric correctness, and citations → from **FinanceBench** (numeric-heavy real filings).
-- **Refusal / "I don't know"** → FinanceBench has **no labelled unanswerable set**, so we retain the **llmware `rag_instruct_benchmark_tester` `not_found_classification` slice (20 rows)** purely as the refusal-precision test (loader kept in `data.py`). Revisited at Phase 6.
+- **Refusal / "I don't know"** → FinanceBench has **no labelled unanswerable set**, so we use **out-of-corpus questions**: since only 8 of the 84 documents are ingested, questions whose source filing is absent must be answered "NOT FOUND" rather than guessed. Same-domain, single data source.
 
 **No real PII** is used; Guardrails are validated against synthetic PII injected into test queries.
 
@@ -244,12 +244,12 @@ See `PROGRESS.md` Phase 6 for execution tracking and `GOVERNANCE.md` for tooling
 
 | Test | Dataset slice | Metric | Threshold |
 |---|---|---|---|
-| **Refusal** *(most important)* | llmware `not_found_classification` (20) | Refusal precision — said "NOT FOUND" instead of hallucinating | **≥ 0.95** |
+| **Refusal** *(most important)* | FinanceBench out-of-corpus questions | Refusal precision — said "NOT FOUND" instead of hallucinating | **≥ 0.95** |
 | **Numeric correctness** | FinanceBench numeric questions | Figure correct within tolerance, quoted from source | **≥ 0.90** |
 | Faithfulness & citation | FinanceBench (40) | Groundedness + citation precision | faith ≥ 0.75 |
 | Answer correctness | FinanceBench (40) | Correct vs. expert (CFA) answer | ≥ 0.80 |
 
-**Offline (CI gate, GitHub Actions):** the golden set (FinanceBench 40 + llmware refusal 20) runs on every PR; any threshold regression blocks merge (§8.2). Results attach to the model card.
+**Offline (CI gate, GitHub Actions):** the golden set (FinanceBench: 40 in-corpus + out-of-corpus refusal questions) runs on every PR; any threshold regression blocks merge (§8.2). Results attach to the model card.
 
 **Online (production):** **5% of live traffic** is sampled, scored for faithfulness + refusal behaviour by an automated judge, and **written back to the request traces** for dashboards and drift detection (§8.3). Note: this is a customer-built loop (sample logged invocations → score via Bedrock Evaluations / `ApplyGuardrail` → write back as custom CloudWatch metrics), not a single managed toggle. This is how silent degradation surfaces.
 
@@ -279,7 +279,7 @@ Each phase is independently demo-able and proves one pillar. Costs are rough dem
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | Numeric hallucination | Med | High | Quote-verbatim rule (F-4); `math` eval ≥ 0.90; refuse if ungrounded |
-| Confident wrong answer on out-of-scope Q | Med | High | Refusal precision ≥ 0.95; `not_found` gate; agent refusal instructions |
+| Confident wrong answer on out-of-scope Q | Med | High | Refusal precision ≥ 0.95; out-of-corpus refusal gate; agent refusal instructions |
 | **Silent quality degradation** | Med | High | Online 5% sampling (Bedrock Eval/grounding check) + drift monitoring; quality-first alerting |
 | Vector-store cost overrun | Low | Med | S3 Vectors default (pay-per-use, no OCU floor); only adopt OpenSearch when hybrid/high-QPS justifies it; cost alarm |
 | Automated Reasoning not in `ap-southeast-2` | High | Med | Treat formal-logic check as optional; rely on contextual grounding check (region-available) for the demo; revisit if US/EU processing is acceptable (§14) |

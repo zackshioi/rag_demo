@@ -43,7 +43,7 @@ Two engines: **Bedrock RAG Evaluation** (AWS-native LLM-as-a-judge, GA Mar 2025)
 | Test | Target |
 |---|---|
 | Faithfulness | ≥ 0.75 |
-| **Refusal precision** (`not_found` — the key trust metric) | ≥ 0.95 |
+| **Refusal precision** (out-of-corpus questions — the key trust metric) | ≥ 0.95 |
 | **Numeric correctness** (`math`, within tolerance) | ≥ 0.90 |
 | context_recall / context_precision | ≥ 0.70 / ≥ 0.70 |
 
@@ -57,7 +57,7 @@ Offline as a CI gate; online on 5% sampled traffic written back to traces. Detai
 
 **Dual-use evidence:** each row's `evidence` (gold supporting text) doubles as retrieval ground-truth (context recall/precision + citation checks), while the full filings form the searchable corpus.
 
-**Refusal slice:** FinanceBench has no labelled unanswerable questions, so the [`llmware`](https://huggingface.co/datasets/llmware/rag_instruct_benchmark_tester) `not_found_classification` set (20 rows) is retained purely as the refusal-precision test.
+**Refusal test:** we ingest only 8 of the 84 documents, so FinanceBench questions whose source filing is *not* in our corpus serve as out-of-corpus refusal cases — the system must answer "not found" instead of hallucinating. Single data source, no extra dataset.
 
 ---
 

@@ -26,7 +26,7 @@ rag_demo/
 
 - **Language:** Python. Match surrounding style; lint with `ruff`, format with `black`, type-check with `mypy` where typed.
 - **Secrets:** never commit. Local via `.env` (git-ignored); CI via **GitHub OIDC → short-lived AWS role** (no long-lived access keys).
-- **Data:** datasets are public (FinanceBench, CC-BY-NC — demo only; + llmware refusal slice). Treat downloaded PDFs and the derived corpus/index as build artifacts — git-ignore caches under `data/`.
+- **Data:** the dataset is public (FinanceBench, CC-BY-NC — demo only). Treat downloaded PDFs and the derived corpus/index as build artifacts — git-ignore caches under `data/`.
 
 ---
 
@@ -70,10 +70,10 @@ We are the **"Consumer"** persona in AWS's FMOps model (prompt/integrate FMs, do
 
 **`.github/workflows/eval.yml`** (required PR check):
 1. Check out PR; set up Python; assume AWS role via OIDC.
-2. Run the golden-set eval (FinanceBench 40 + llmware refusal 20) (`evals/`):
+2. Run the golden-set eval (FinanceBench: 40 in-corpus + out-of-corpus refusal) (`evals/`):
    - Local phases → **RAGAS** (faithfulness, response_relevancy, context_precision, context_recall).
    - KB live → **Bedrock RAG Evaluation** (LLM-as-judge: faithfulness, citation precision/coverage, refusal) as primary.
-   - Category governance tests: refusal precision (`not_found`), numeric correctness (`math`), baseline accuracy (`core_qa`), boolean exact-match.
+   - Category governance tests: refusal precision (out-of-corpus), numeric correctness, faithfulness + citation, answer correctness.
 3. **Fail the job (block merge) if any threshold regresses** below PRD §3:
    faithfulness ≥ 0.75 · refusal precision ≥ 0.95 · numeric correctness ≥ 0.90 · context_recall/precision ≥ 0.70.
 4. Publish the score report as a PR artifact / comment; attach to the model card on merge.
