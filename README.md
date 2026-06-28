@@ -43,7 +43,7 @@ Two engines: **Bedrock RAG Evaluation** (AWS-native LLM-as-a-judge, GA Mar 2025)
 | Test | Target |
 |---|---|
 | Faithfulness | ≥ 0.75 |
-| **Refusal precision** (`not_found` — the key trust metric) | ≥ 0.95 |
+| **Refusal precision** (out-of-corpus questions — the key trust metric) | ≥ 0.95 |
 | **Numeric correctness** (`math`, within tolerance) | ≥ 0.90 |
 | context_recall / context_precision | ≥ 0.70 / ≥ 0.70 |
 
@@ -53,9 +53,11 @@ Offline as a CI gate; online on 5% sampled traffic written back to traces. Detai
 
 ## Data
 
-[`llmware/rag_instruct_benchmark_tester`](https://huggingface.co/datasets/llmware/rag_instruct_benchmark_tester) — 200 enterprise Q&A samples across 6 categories (core_qa 100, not_found 20, boolean 20, math 20, complex_qa 20, summary 20).
+**Primary corpus — [FinanceBench](https://huggingface.co/datasets/PatronusAI/financebench)** (`PatronusAI/financebench`): 150 expert-written (CFA) Q&A over **real SEC filings** (10-K/10-Q/8-K/earnings). License CC-BY-NC-4.0 — demonstrator only. For a cost-aware demo we use a reproducible **lean subset of 8 filings** (~1,583 pages, 40 questions) — real "needle-in-a-haystack" retrieval. PDFs parsed locally with `pymupdf4llm` (Phase 1), by Bedrock KB on AWS (Phase 4).
 
-**Dual-use `context` trick:** the inline `context` column is reused two ways — deduped into the document corpus (to build the Knowledge Base) **and** as ground-truth context (to evaluate retrieval recall/precision). One dataset, self-contained corpus + retrieval ground truth, no extra labelling.
+**Dual-use evidence:** each row's `evidence` (gold supporting text) doubles as retrieval ground-truth (context recall/precision + citation checks), while the full filings form the searchable corpus.
+
+**Refusal test:** we ingest only 8 of the 84 documents, so FinanceBench questions whose source filing is *not* in our corpus serve as out-of-corpus refusal cases — the system must answer "not found" instead of hallucinating. Single data source, no extra dataset.
 
 ---
 

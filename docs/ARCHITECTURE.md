@@ -129,7 +129,7 @@ The **logical interfaces are stable**; only implementations swap. This is the co
 | Bedrock Agents | Orchestration | governance instructions + KB wiring; versions + aliases |
 | Bedrock Guardrails | Safety | PII redaction, denied topics, prompt-attack, contextual grounding check; enforced via IAM `bedrock:GuardrailIdentifier` |
 | Bedrock Evaluations | Quality | LLM-as-judge RAG eval (offline gate + sampled online) |
-| Amazon S3 + **S3 Vectors** | Source corpus + vector store | deduped `context` documents; pay-per-use vector index (default) |
+| Amazon S3 + **S3 Vectors** | Source corpus + vector store | parsed FinanceBench filings; pay-per-use vector index (default) |
 | OpenSearch Serverless | Vector store (optional) | only for hybrid search / high-QPS — standing OCU cost |
 | Amazon CloudWatch | Monitoring | health/quality/cost metrics + alarms; model-invocation logs |
 | AWS KMS | Encryption | at-rest keys for S3/vector store |

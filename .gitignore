@@ -23,6 +23,9 @@ data/
 .cache/
 *.duckdb
 
+# Jupyter
+.ipynb_checkpoints/
+
 # OS / editor
 .DS_Store
 .idea/

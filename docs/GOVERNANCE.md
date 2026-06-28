@@ -27,7 +27,7 @@ AWS's model-governance tooling lives in **SageMaker**, not Bedrock. Model Cards 
 - Sources: [Model Cards](https://docs.aws.amazon.com/sagemaker/latest/dg/model-cards.html) · [ML governance](https://aws.amazon.com/sagemaker/ai/ml-governance/)
 
 ### 1.4 Category-specific governance tests (our additions)
-Derived from the dataset (PRD §10/§11): refusal precision on `not_found` (≥0.95), numeric correctness on `math` (≥0.90), baseline accuracy on `core_qa`, boolean exact-match. These are the regulated-finance differentiators on top of generic RAG metrics.
+Derived from the dataset (PRD §10/§11): refusal precision on out-of-corpus questions (≥0.95), numeric correctness on FinanceBench numeric questions (≥0.90), faithfulness + citation, and answer correctness on in-corpus questions. These are the regulated-finance differentiators on top of generic RAG metrics.
 
 ---
 

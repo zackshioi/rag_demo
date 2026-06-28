@@ -32,7 +32,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 - [x] `.gitignore` (Python, `.env`, AWS creds, data caches)
 - [x] Project layout (`src/policy_copilot`, `tests/`, `evals/`, `infra/`, `prompts/`, `.github/workflows/`)
 - [x] Python env via **uv** (Python 3.12 pinned, `pyproject.toml` + `uv.lock`); dev tools ruff/black/mypy/pytest — all green
-- [ ] GitHub Actions: `ci.yml` (lint + unit tests on every PR)
+- [x] GitHub Actions: `ci.yml` (ruff + black + mypy + pytest via uv, on every PR) — merged in PR #1
 - [ ] GitHub Actions: `eval.yml` (golden-set eval gate — wired in Phase 6)
 - [ ] Secrets via GitHub OIDC → AWS role (no long-lived keys)
 
@@ -46,14 +46,18 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 **Proves:** baseline retrieve+answer works end-to-end, locally, near-zero cost.
 **Cost:** ~US$1–5 (API only). **Demo:** CLI — question → cited answer.
 
-- [ ] Load `llmware/rag_instruct_benchmark_tester`; inspect 6 categories
-- [ ] Dedup `context` column → local document corpus
-- [ ] Build FAISS index (embed chunks)
-- [ ] `Anthropic` messages loop: retrieve → ground → answer with citations
-- [ ] Refusal behaviour when retrieval is empty/weak (F-5)
-- [ ] CLI demo script
+- [x] **Primary dataset: FinanceBench** (`src/policy_copilot/financebench.py`) — 150 Q&A over real SEC filings
+- [x] Lean subset: 8 filings downloaded + parsed with `pymupdf4llm` → Markdown, cached (1,583 pages / 40 questions)
+- [x] Refusal test = out-of-corpus FinanceBench questions (source filing not in the subset) — single data source, no llmware
+- [x] Exploration notebooks (`notebooks/explore_financebench.ipynb`, `explore_data.ipynb`)
+- [ ] Chunking (split filings into retrievable passages) — F1.3
+- [ ] Build FAISS index (embed chunks) — F1.4
+- [ ] `search_documents` retrieval function — F1.5
+- [ ] `Anthropic` messages loop: retrieve → ground → answer with citations — F1.6 (needs Anthropic API key)
+- [ ] Refusal behaviour when retrieval is empty/weak (F-5) — F1.7
+- [ ] CLI demo script — F1.8
 
-**Exit criteria:** cited answers on `core_qa` samples; refuses on obvious out-of-scope.
+**Exit criteria:** cited answers on FinanceBench questions; refuses on out-of-corpus questions.
 
 ---
 
@@ -120,7 +124,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 - [ ] Enforce guardrail via IAM `bedrock:GuardrailIdentifier`
 - [ ] `InvokeAgent` from app layer with `enableTrace: true`
 - [ ] Set up Agent versions + aliases (Dev/Staging/Prod)
-- [ ] Validate refusal on `not_found`; PII redaction + grounding-check on synthetic-PII queries
+- [ ] Validate refusal on out-of-corpus questions; PII redaction + grounding-check on synthetic-PII queries
 
 **Exit criteria:** governed agent demo — correct refusal + PII redaction + grounding-check observed.
 
@@ -135,7 +139,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 - [ ] RAGAS harness (local, Phases 1–2): faithfulness, response_relevancy, context_precision, context_recall
 - [ ] Bedrock RAG Evaluation (LLM-as-judge) once KB is live: faithfulness, citation precision/coverage, refusal
 - [ ] Use dual-use `context` as gold for context_recall/precision (PRD §10)
-- [ ] Refusal-precision test on `not_found` (target ≥ 0.95)
+- [ ] Refusal-precision test on out-of-corpus questions (target ≥ 0.95)
 - [ ] Numeric-correctness test on `math` (target ≥ 0.90, within tolerance)
 - [ ] Baseline accuracy on `core_qa`; boolean exact-match
 - [ ] **GitHub Actions workflow**: run golden-set eval on every PR as a required check (block on threshold regression — PRD §8.2)
@@ -146,7 +150,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 | Metric | Target | Actual |
 |---|---|---|
 | faithfulness | ≥ 0.75 | — |
-| refusal precision (`not_found`) | ≥ 0.95 | — |
+| refusal precision (out-of-corpus) | ≥ 0.95 | — |
 | numeric correctness (`math`) | ≥ 0.90 | — |
 | context_recall / precision | ≥ 0.70 / ≥ 0.70 | — |
 | p95 latency | ≤ 6 s | — |

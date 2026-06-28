@@ -27,7 +27,7 @@ The governing thesis of this project: **AI failures in regulated industries come
 | Goal | Metric | Target |
 |---|---|---|
 | Faithful answers | RAGAS faithfulness (offline + online) | **≥ 0.75** |
-| Correct refusals | Refusal precision on `not_found` set | **≥ 0.95** |
+| Correct refusals | Refusal precision on out-of-corpus questions | **≥ 0.95** |
 | Numeric integrity | Numeric correctness within tolerance (`math` set) | **≥ 0.90** |
 | Retrieval quality | RAGAS context_recall / context_precision | **≥ 0.70 / ≥ 0.70** |
 | Responsiveness | End-to-end p95 latency | **≤ 6 s** |
@@ -71,7 +71,7 @@ The governing thesis of this project: **AI failures in regulated industries come
 - Authn/authz, SSO, and document-level entitlement enforcement (assumed provided by host platform — see §14)
 - Multilingual corpus (English only)
 - Fine-tuning / custom model training (RAG + prompting only)
-- Real customer PII data — demonstrator uses the public `llmware` benchmark (§10)
+- Real customer PII data — demonstrator uses the public FinanceBench benchmark (§10)
 
 ---
 
@@ -83,7 +83,7 @@ The governing thesis of this project: **AI failures in regulated industries come
 | F-2 | Retrieval is invoked via **tool use / function calling** (`search_documents(query, k)` → ranked chunks with source IDs). |
 | F-3 | Every non-refusal answer carries **≥1 citation** resolving to source chunk text and document ID. |
 | F-4 | **Numeric facts are quoted verbatim** from retrieved source spans; the model must not compute or paraphrase figures it cannot point to. Math answers cite the source span used. |
-| F-5 | If retrieved context does not support an answer, the system responds **"NOT FOUND / I don't know"** rather than guessing (out-of-scope and `not_found` cases). |
+| F-5 | If retrieved context does not support an answer, the system responds **"NOT FOUND / I don't know"** rather than guessing (out-of-scope / out-of-corpus cases). |
 | F-6 | **Guardrails** redact PII and block denied topics on both input and output. |
 | F-7 | Each request emits an **audit record**: timestamp, user, question, model+version, prompt/config version, retrieved source IDs, tool calls, final answer, guardrail events. |
 | F-8 | Answers degrade gracefully: retrieval empty → refusal; tool error → safe error message, never a fabricated answer. |
@@ -205,23 +205,21 @@ All five mandatory pillars, AWS-native, Sydney-resident. See `ARCHITECTURE.md` f
 
 ## 10. Data Plan
 
-**Source:** HuggingFace `llmware/rag_instruct_benchmark_tester` — 200 enterprise Q&A samples (financial news, earnings, legal contracts, employment agreements, invoices). Each row: `query`, `context`, `answer`, `category`.
+**Primary corpus — FinanceBench** (`PatronusAI/financebench`): 150 expert-written (CFA) Q&A over **real SEC filings** (10-K / 10-Q / 8-K / earnings) from 40 US companies. Each row: `question`, `answer`, `evidence` (gold supporting text), `doc_name` → source PDF, plus `doc_type`, `company`, `gics_sector`. **License: CC-BY-NC-4.0 — demonstrator only; a production deployment needs a commercial or internal corpus.**
 
-| Category | Count | Use in this project |
-|---|---|---|
-| core_qa | 100 | Baseline accuracy + faithfulness |
-| not_found | 20 | **Refusal-rate** evaluation (the key trust metric) |
-| boolean | 20 | Yes/no faithfulness |
-| math | 20 | **Numeric correctness** within tolerance |
-| complex_qa | 20 | Multi-fact reasoning faithfulness |
-| summary | 20 | Summarisation grounding |
+- The 150 questions span **84 unique documents**. For a cost-aware demo we take a **reproducible lean subset of 8 documents** (most-questioned first; `select_documents`), covering **40 questions** and ~**1,583 pages / 4.9M chars** — genuine "needle-in-a-haystack" retrieval over full filings (e.g. PepsiCo's 10-K alone is 503 pages).
+- Subset: AMD, American Express, Boeing, PepsiCo, Amcor, Ulta Beauty, 3M (10-K + 10-Q) — across IT, financials, industrials, consumer, materials.
+- PDFs are fetched from the FinanceBench GitHub repo and parsed **locally with `pymupdf4llm` → Markdown** (Phase 1); on AWS the same PDFs are parsed by **Bedrock KB** (Phase 4). Same documents, two parsers — the "evolvable, not rewritten" principle.
 
-**The dual-use `context` trick** — the inline `context` column is reused two ways:
+**Dual-use evidence (retrieval ground truth):**
+1. **Corpus:** the full parsed filings are uploaded to S3, chunked, embedded, indexed — what retrieval searches.
+2. **Gold context:** each row's `evidence` is the gold supporting passage, enabling RAGAS `context_recall` / `context_precision` and citation checks — did retrieval find the *right* passage inside a 100+ page filing.
 
-1. **Corpus build:** `context` values are **deduplicated** and loaded to S3 as the document corpus that the Knowledge Base chunks, embeds, and indexes. This is what retrieval searches.
-2. **Ground-truth for evaluation:** the same `context` (per row) is the **gold retrieved context**, enabling RAGAS `context_recall` / `context_precision` — we can measure whether retrieval found the *right* passage, not just *a* passage.
+**Governance slices:**
+- Faithfulness, numeric correctness, and citations → from **FinanceBench** (numeric-heavy real filings).
+- **Refusal / "I don't know"** → FinanceBench has **no labelled unanswerable set**, so we use **out-of-corpus questions**: since only 8 of the 84 documents are ingested, questions whose source filing is absent must be answered "NOT FOUND" rather than guessed. Same-domain, single data source.
 
-This gives a self-contained corpus **and** a retrieval ground truth from one dataset — no separate labelling. `not_found` rows deliberately pose questions the corpus cannot answer, exercising refusal behaviour. **No real PII** is used; Guardrails are validated against synthetic PII injected into test queries.
+**No real PII** is used; Guardrails are validated against synthetic PII injected into test queries.
 
 ---
 
@@ -246,12 +244,12 @@ See `PROGRESS.md` Phase 6 for execution tracking and `GOVERNANCE.md` for tooling
 
 | Test | Dataset slice | Metric | Threshold |
 |---|---|---|---|
-| **Refusal** *(most important)* | `not_found` (20) | Refusal precision — said "NOT FOUND" instead of hallucinating | **≥ 0.95** |
-| **Numeric correctness** | `math` (20) | Figure correct within tolerance, quoted from source | **≥ 0.90** |
-| Baseline accuracy | `core_qa` (100) | Accuracy + faithfulness | acc ≥ 0.80, faith ≥ 0.75 |
-| Boolean correctness | `boolean` (20) | Exact-match yes/no | ≥ 0.85 |
+| **Refusal** *(most important)* | FinanceBench out-of-corpus questions | Refusal precision — said "NOT FOUND" instead of hallucinating | **≥ 0.95** |
+| **Numeric correctness** | FinanceBench numeric questions | Figure correct within tolerance, quoted from source | **≥ 0.90** |
+| Faithfulness & citation | FinanceBench (40) | Groundedness + citation precision | faith ≥ 0.75 |
+| Answer correctness | FinanceBench (40) | Correct vs. expert (CFA) answer | ≥ 0.80 |
 
-**Offline (CI gate, GitHub Actions):** the full 200-row golden set runs on every PR; any threshold regression blocks merge (§8.2). Results attach to the model card.
+**Offline (CI gate, GitHub Actions):** the golden set (FinanceBench: 40 in-corpus + out-of-corpus refusal questions) runs on every PR; any threshold regression blocks merge (§8.2). Results attach to the model card.
 
 **Online (production):** **5% of live traffic** is sampled, scored for faithfulness + refusal behaviour by an automated judge, and **written back to the request traces** for dashboards and drift detection (§8.3). Note: this is a customer-built loop (sample logged invocations → score via Bedrock Evaluations / `ApplyGuardrail` → write back as custom CloudWatch metrics), not a single managed toggle. This is how silent degradation surfaces.
 
@@ -281,14 +279,14 @@ Each phase is independently demo-able and proves one pillar. Costs are rough dem
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | Numeric hallucination | Med | High | Quote-verbatim rule (F-4); `math` eval ≥ 0.90; refuse if ungrounded |
-| Confident wrong answer on out-of-scope Q | Med | High | Refusal precision ≥ 0.95; `not_found` gate; agent refusal instructions |
+| Confident wrong answer on out-of-scope Q | Med | High | Refusal precision ≥ 0.95; out-of-corpus refusal gate; agent refusal instructions |
 | **Silent quality degradation** | Med | High | Online 5% sampling (Bedrock Eval/grounding check) + drift monitoring; quality-first alerting |
 | Vector-store cost overrun | Low | Med | S3 Vectors default (pay-per-use, no OCU floor); only adopt OpenSearch when hybrid/high-QPS justifies it; cost alarm |
 | Automated Reasoning not in `ap-southeast-2` | High | Med | Treat formal-logic check as optional; rely on contextual grounding check (region-available) for the demo; revisit if US/EU processing is acceptable (§14) |
 | Claude model not in `ap-southeast-2` | Med | High | Verify availability / AU cross-region inference profile before Phase 3 (§14) |
 | Retrieval misses correct passage | Med | Med | context_recall ≥ 0.70 gate; tune chunking; dual-use ground truth |
 | PII leakage | Low | High | Guardrails redaction in+out; no real PII in demo; validate with synthetic PII |
-| Eval set too small (200 rows) to be conclusive | High | Med | Treat as gate not proof; expand golden set before production sign-off |
+| Eval set small (FinanceBench 40 + refusal 20) to be conclusive | High | Med | Treat as gate not proof; expand subset / golden set before production sign-off |
 | Prompt/config drift via console edits | Med | Med | All prompts/config version-controlled; no console free-text in prod |
 
 ---
@@ -298,7 +296,7 @@ Each phase is independently demo-able and proves one pillar. Costs are rough dem
 **Assumptions**
 - Authentication, authorisation, and document-level entitlements are provided by the host platform; Copilot is read-only and entitlement-agnostic in this iteration.
 - The chosen Claude model is available in `ap-southeast-2` directly or via an Australia-resident cross-region inference profile (to be confirmed before Phase 3).
-- The public `llmware` dataset is an acceptable proxy for internal documents for demonstrator purposes; production uses real corpora under the same controls.
+- The public FinanceBench dataset (real SEC filings) is an acceptable proxy for internal documents for demonstrator purposes; its CC-BY-NC licence is demo-only, so production uses a commercial/internal corpus under the same controls.
 - Audit-log retention target of 7 years reflects a typical regulatory minimum; actual period set by the client's records policy.
 - Vector store defaults to S3 Vectors; OpenSearch Serverless adopted only if hybrid search / high-QPS is required.
 - Demo infrastructure is torn down when idle as hygiene (no longer cost-critical now S3 Vectors has no OCU floor).
