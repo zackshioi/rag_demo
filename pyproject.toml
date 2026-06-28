@@ -5,9 +5,11 @@ description = "Citation-grounded RAG agent for regulated banking (portfolio demo
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=0.112.0",
     "datasets>=5.0.0",
     "faiss-cpu>=1.14.3",
     "pymupdf4llm>=1.27.2.3",
+    "python-dotenv>=1.2.2",
     "sentence-transformers>=5.6.0",
 ]
 

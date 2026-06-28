@@ -49,16 +49,16 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 - [x] **Primary dataset: FinanceBench** (`src/policy_copilot/financebench.py`) — 150 Q&A over real SEC filings
 - [x] Lean subset: 8 filings downloaded + parsed with `pymupdf4llm` → Markdown, cached (1,583 pages / 40 questions)
 - [x] Refusal test = out-of-corpus FinanceBench questions (source filing not in the subset) — single data source, no llmware
-- [x] Exploration notebooks: `explore_financebench.ipynb`, `explore_retrieval.ipynb`
+- [x] Exploration notebooks: `explore_financebench.ipynb`, `explore_retrieval.ipynb`, `explore_answer.ipynb`
 - [x] Chunking (structure-aware, ~1600 chars/240 overlap; `chunking.py`) — F1.3 → 8 filings = 3,812 chunks
 - [x] Build FAISS index (bge-base embeddings, cosine; `index.py`) — F1.4 → 3,812 vectors, persisted
 - [x] Retrieval function `search(query) → ranked chunks + scores` (`index.py`) — F1.5. (Exposing it as a model-callable *tool* is Phase 2 / F2.1.)
 - [x] Local secrets scaffold: `.env.example` (committed) + git-ignored `.env` for the Anthropic key — F1.6 prep
-- [ ] `Anthropic` messages loop: retrieve → ground → answer with citations — F1.6 (needs Anthropic API key)
-- [ ] Refusal behaviour when retrieval is empty/weak (F-5) — F1.7
-- [ ] CLI demo script — F1.8
+- [x] `Anthropic` messages loop: retrieve → ground → answer with citations (`agent.py`, Claude Sonnet 4.6) — F1.6
+- [x] Refusal behaviour: low-score pre-check (no API call) + `NOT FOUND` prompt rule + `refusal` stop_reason — F1.7
+- [ ] CLI demo script — F1.8 (`agent.main()` is a basic demo; proper CLI pending)
 
-**Exit criteria:** cited answers on FinanceBench questions; refuses on out-of-corpus questions.
+**Exit criteria:** ✅ cited answers on FinanceBench questions (AMD revenue → "$23.6 billion" [cited]); ✅ refuses on out-of-corpus questions.
 
 ---
 
