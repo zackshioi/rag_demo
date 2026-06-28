@@ -40,7 +40,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 
 ---
 
-## Phase 1 — Local RAG (Pillar 1: Anthropic SDK) · ⬜
+## Phase 1 — Local RAG (Pillar 1: Anthropic SDK) · ✅
 
 **Goal:** FAISS + Anthropic SDK answer questions over the corpus with citations.
 **Proves:** baseline retrieve+answer works end-to-end, locally, near-zero cost.
@@ -49,16 +49,19 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 - [x] **Primary dataset: FinanceBench** (`src/policy_copilot/financebench.py`) — 150 Q&A over real SEC filings
 - [x] Lean subset: 8 filings downloaded + parsed with `pymupdf4llm` → Markdown, cached (1,583 pages / 40 questions)
 - [x] Refusal test = out-of-corpus FinanceBench questions (source filing not in the subset) — single data source, no llmware
-- [x] Exploration notebooks: `explore_financebench.ipynb`, `explore_retrieval.ipynb`, `explore_answer.ipynb`
+- [x] Exploration notebooks: `explore_financebench.ipynb`, `explore_retrieval.ipynb`, `explore_answer.ipynb`, `error_analysis.ipynb`
 - [x] Chunking (structure-aware, ~1600 chars/240 overlap; `chunking.py`) — F1.3 → 8 filings = 3,812 chunks
 - [x] Build FAISS index (bge-base embeddings, cosine; `index.py`) — F1.4 → 3,812 vectors, persisted
 - [x] Retrieval function `search(query) → ranked chunks + scores` (`index.py`) — F1.5. (Exposing it as a model-callable *tool* is Phase 2 / F2.1.)
 - [x] Local secrets scaffold: `.env.example` (committed) + git-ignored `.env` for the Anthropic key — F1.6 prep
 - [x] `Anthropic` messages loop: retrieve → ground → answer with citations (`agent.py`, Claude Sonnet 4.6) — F1.6
 - [x] Refusal behaviour: low-score pre-check (no API call) + `NOT FOUND` prompt rule + `refusal` stop_reason — F1.7
-- [ ] CLI demo script — F1.8 (`agent.main()` is a basic demo; proper CLI pending)
+- [x] CLI demo script (`cli.py`): REPL + one-shot — F1.8
+- [x] **EDD Tier-1 skeleton** (early start on Phase 6): `tracing.py` (every answer → `data/traces/traces.jsonl`), `evals/golden.jsonl` seed, `error_analysis.ipynb` (diagnose) — see `EVALUATION.md`
 
-**Exit criteria:** ✅ cited answers on FinanceBench questions (AMD revenue → "$23.6 billion" [cited]); ✅ refuses on out-of-corpus questions.
+**Exit criteria:** ✅ cited answers on FinanceBench questions (AMD revenue → "$23.6 billion" [cited]); ✅ refuses on out-of-corpus questions; ✅ every Q&A traced for error analysis.
+
+**Phase 1 complete.** Next: Phase 2 (expose retrieval as a model-callable tool).
 
 ---
 
