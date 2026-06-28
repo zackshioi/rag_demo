@@ -12,6 +12,7 @@ env/
 # Secrets / credentials — never commit
 .env
 .env.*
+!.env.example
 *.pem
 .aws/
 credentials
