@@ -83,32 +83,31 @@ Passes the gate **and** is not worse than the current version on the golden set 
 
 ## Sending traces to Langfuse (Tier-2 — how it works)
 
-When `LANGFUSE_*` keys are set, `tracing.send_langfuse()` mirrors each answer to a
-self-hosted Langfuse (start it with `infra/langfuse/README.md`). The send path:
+When `LANGFUSE_*` keys are set, each answer is mirrored to a self-hosted Langfuse
+(start it with `infra/langfuse/README.md`) as **one clean nested trace**:
 
-1. **Read creds from env** (`LANGFUSE_PUBLIC_KEY` / `SECRET_KEY` / `HOST`) → `get_client()`.
-2. **Opt-in guard** — skip if no public key (tracing falls back to JSONL only; never required).
-3. **Open a span** (`start_as_current_observation`, `input = question`) — the root span is the trace.
-4. **Attach output + metadata** (model, refused, top_score, citations, latency).
-5. **Attach scores** (`refused`, `top_score`) via `score_current_trace`.
-6. The SDK **batches and sends asynchronously over HTTP** to Langfuse's ingestion API; the
-   `langfuse-worker` writes to ClickHouse → visible in the UI.
+1. **`@observe`** decorates `answer()` / `answer_agentic()` → a root business span
+   (`answer` / `answer_agentic`) that stays *active for the whole call*
+   (`capture_input=False` so the FAISS index isn't serialised).
+2. **Auto-instrumentation** (`setup_auto_instrumentation`, OpenTelemetry +
+   `opentelemetry-instrumentation-anthropic`) turns every Claude call into a
+   `generation` with model + token usage. Because the `@observe` span is active,
+   each generation **nests under it** → Langfuse computes **native cost**, and the
+   tree reads `answer_agentic → generation (round 1) → generation (round 2)`.
+3. **`finalize_langfuse()`** (called inside the decorated fn, so it targets the
+   current span) attaches business semantics: `set_current_trace_io`
+   (question/answer), `update_current_span` (model, refused, tokens, cost, error,
+   latency) and `score_current_trace` (refused, plus top_score /
+   citations_resolve / numbers_verbatim when present).
 
-**Flushing is automatic.** The SDK flushes on a background interval (default
-`LANGFUSE_FLUSH_INTERVAL=1s`, or every `LANGFUSE_FLUSH_AT=15` events) and registers an
-`atexit` shutdown for clean exits. Explicit `flush()`/`shutdown()` is only needed when
-`atexit` may not run (`kill -9`, `os._exit`, serverless freeze). Tune cadence via those env
-vars. In a long-running service (Phase 3+), drop any per-call flush and rely on the
-background flusher + a shutdown flush.
+This is the recommended combo — **auto-instrument for the LLM call's token/cost +
+a manual span for business semantics** — unified into a *single* trace instead of
+two separate ones. The SDK batches and flushes asynchronously (background interval
+`LANGFUSE_FLUSH_INTERVAL=1s` / `LANGFUSE_FLUSH_AT=15`, plus an `atexit` shutdown),
+so no per-call flush is needed.
 
-The whole sink is **best-effort** (`try/except`): observability must never break an answer.
-
-**Auto-instrumentation (native cost).** `setup_auto_instrumentation()` enables OpenTelemetry
-auto-instrumentation of the Anthropic SDK (`opentelemetry-instrumentation-anthropic`), so every
-Claude call becomes a Langfuse `generation` with model + token usage → Langfuse computes **native
-cost** and powers its cost dashboards. This is the recommended combo: **auto-instrument for the LLM
-call's token/cost + manual spans for business semantics** (trajectory, verdict). No-op without
-`LANGFUSE_*` keys.
+The whole sink is **best-effort** (`try/except`, no-op without keys): observability
+must never break an answer.
 
 ## Phasing (build evals as real traces accumulate — the EDD way)
 

@@ -23,11 +23,12 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+from langfuse import observe
 
 from policy_copilot.agent import MODEL, REFUSAL_TEXT, _extract_citations, cost_usd
 from policy_copilot.chunking import Chunk
 from policy_copilot.index import load_index, search
-from policy_copilot.tracing import record, send_langfuse_agentic
+from policy_copilot.tracing import finalize_langfuse, record
 
 load_dotenv()
 
@@ -98,6 +99,7 @@ def verify(answer_text: str, retrieved: list[Chunk]) -> Verdict:
     return Verdict(citations_resolve=citations_resolve, numbers_verbatim=numbers_verbatim)
 
 
+@observe(name="answer_agentic", capture_input=False, capture_output=False)
 def answer_agentic(
     question: str,
     index: Any = None,
@@ -209,7 +211,7 @@ def _trace(question: str, result: AgenticAnswer, latency_ms: float) -> None:
         "latency_ms": round(latency_ms, 1),
     }
     record(event)
-    send_langfuse_agentic(question, event, result.tool_calls)
+    finalize_langfuse(question, event)
 
 
 def main() -> None:

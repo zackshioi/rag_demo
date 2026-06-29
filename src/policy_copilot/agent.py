@@ -23,9 +23,10 @@ from typing import Any
 import anthropic
 from anthropic.types import TextBlock
 from dotenv import load_dotenv
+from langfuse import observe
 
 from policy_copilot.index import SearchHit, load_index, search
-from policy_copilot.tracing import record, send_langfuse, setup_auto_instrumentation
+from policy_copilot.tracing import finalize_langfuse, record, setup_auto_instrumentation
 
 load_dotenv()
 setup_auto_instrumentation()  # auto-trace Claude calls -> Langfuse (native token/cost)
@@ -106,10 +107,11 @@ def _trace(question: str, result: Answer, latency_ms: float) -> Answer:
         "latency_ms": round(latency_ms, 1),
     }
     record(event)
-    send_langfuse(question, event)
+    finalize_langfuse(question, event)
     return result
 
 
+@observe(name="answer", capture_input=False, capture_output=False)
 def answer(
     question: str,
     index: Any = None,
