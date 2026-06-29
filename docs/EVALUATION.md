@@ -116,6 +116,8 @@ must never break an answer.
 
 Golden set note: it starts as a hand-picked seed and grows two ways — (a) **auto-built from FinanceBench** gold answers + evidence, and (b) **from diagnose** (real failures become cases).
 
+**Realized (`evals/`):** `build_golden.py` writes `golden.jsonl` = the **40 FinanceBench rows** over our 8 filings (gold `answer` + `evidence`) **+** hand-authored out-of-corpus **refusal** cases (FinanceBench has none) → 44 cases. `run_eval.py` is the diagnose step: it runs the agent over the set and bins each outcome (`ok` / `wrongly_refused` / `missing_expected` / `no_citation` / `should_have_refused`), printing the failures that become the next fixes. First run (Phase-1 `answer()` over FinanceBench analysis questions) surfaced ~50% `wrongly_refused` — those need the agentic multi-hop path, the canonical diagnose→fix signal.
+
 ---
 
 ## Sources
