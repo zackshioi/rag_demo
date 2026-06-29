@@ -84,19 +84,19 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 
 ---
 
-## Phase 3 — Claude on Bedrock (Pillar 3) · ⬜
+## Phase 3 — Claude on Bedrock (Pillar 3) · 🟡
 
 **Goal:** swap `Anthropic` → `AnthropicBedrock`, region-pinned to `ap-southeast-2`.
 **Proves:** AWS-native, data-resident inference; same loop.
 **Cost:** ~US$2–8. **Demo:** identical loop now running on Sydney Bedrock.
 
-- [ ] **BLOCKER CHECK:** confirm Claude model available in `ap-southeast-2` or AU cross-region profile (PRD §14.1)
-- [ ] IAM role + least-privilege Bedrock invoke policy
-- [ ] Swap client to `AnthropicBedrock`; pin model ID + version
+- [x] **BLOCKER CHECK:** confirmed `au.anthropic.claude-sonnet-4-6` **ACTIVE** in `ap-southeast-2` — the **AU inference profile routes only within Australia** (ap-southeast-2 / ap-southeast-4), i.e. data stays in-country (PRD §14.1)
+- [x] IAM: AWS managed `AmazonBedrockFullAccess` on a dedicated CLI user (demo; tighten to least-priv later)
+- [x] Swap client to `AnthropicBedrock` via `LLM_BACKEND` switch (`llm.py`); pinned `au.anthropic.claude-sonnet-4-6`. `cost_usd` resolves profile ids; `response.usage` works on Bedrock (token/cost captured)
 - [ ] Record pinned version in model card
-- [ ] Re-run Phase 1/2 demos against Bedrock
+- [ ] Re-run Phase 1/2 demos against Bedrock — ⛔ **blocked on AWS console: submit the Anthropic *use case details* form** (Bedrock returns 404 until then; our error-handling safely degrades to `NOT FOUND` + traces `error=NotFoundError`). Code verified to reach Bedrock; awaiting account approval (~15 min after form).
 
-**Exit criteria:** same answers/citations via Bedrock; version pinned & recorded.
+**Exit criteria:** same answers/citations via Bedrock; version pinned & recorded. *(Pending use-case-form approval, then re-run.)*
 
 ---
 

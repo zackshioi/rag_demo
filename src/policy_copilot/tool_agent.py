@@ -25,9 +25,10 @@ from typing import Any
 from dotenv import load_dotenv
 from langfuse import observe
 
-from policy_copilot.agent import MODEL, REFUSAL_TEXT, _extract_citations, cost_usd
+from policy_copilot.agent import REFUSAL_TEXT, _extract_citations, cost_usd
 from policy_copilot.chunking import Chunk
 from policy_copilot.index import load_index, search
+from policy_copilot.llm import MODEL, make_client
 from policy_copilot.tracing import finalize_langfuse, record
 
 load_dotenv()
@@ -112,7 +113,7 @@ def answer_agentic(
     started = time.monotonic()
     if index is None or chunks is None:
         index, chunks = load_index()
-    client: Any = anthropic.Anthropic()
+    client: Any = make_client()
     system = PROMPT_PATH.read_text(encoding="utf-8")
 
     messages: list[Any] = [{"role": "user", "content": question}]

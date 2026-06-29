@@ -6,14 +6,12 @@ governance system prompt that forces grounded, cited answers and "NOT FOUND"
 when unsupported. Numbers must be quoted verbatim from the context. Every call
 records a trace (the 'trace' stage of the EDD loop — see docs/EVALUATION.md).
 
-Uses the Anthropic SDK (Pillar 1) with the local `Anthropic` client; the API key
-is read from the environment (`.env` via python-dotenv). Phase 3 swaps this for
-`AnthropicBedrock` with the same loop.
+The client + model id come from `llm.py`, which switches between the Anthropic API
+(default) and AWS Bedrock (`LLM_BACKEND=bedrock`, Phase 3) — the loop is identical.
 """
 
 from __future__ import annotations
 
-import os
 import re
 import time
 from dataclasses import dataclass
@@ -26,12 +24,12 @@ from dotenv import load_dotenv
 from langfuse import observe
 
 from policy_copilot.index import SearchHit, load_index, search
+from policy_copilot.llm import MODEL, make_client
 from policy_copilot.tracing import finalize_langfuse, record, setup_auto_instrumentation
 
 load_dotenv()
 setup_auto_instrumentation()  # auto-trace Claude calls -> Langfuse (native token/cost)
 
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system_prompt.md"
 # Top score below this -> refuse without calling the model (tuned in Phase 6).
 REFUSAL_THRESHOLD = 0.45
@@ -48,8 +46,12 @@ PRICING: dict[str, tuple[float, float]] = {
 
 
 def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
-    """Estimate USD cost from token counts (0.0 for unknown models)."""
-    rate = PRICING.get(model)
+    """Estimate USD cost from token counts (0.0 for unknown models).
+
+    Matches by substring so Bedrock inference-profile ids (e.g.
+    ``au.anthropic.claude-sonnet-4-6``) resolve to the same base-model price.
+    """
+    rate = next((r for key, r in PRICING.items() if key in model), None)
     if rate is None:
         return 0.0
     return round(input_tokens / 1e6 * rate[0] + output_tokens / 1e6 * rate[1], 6)
@@ -128,7 +130,7 @@ def answer(
         result = Answer(text=REFUSAL_TEXT, refused=True, citations=[], hits=hits)
         return _trace(question, result, (time.monotonic() - started) * 1000)
 
-    client = anthropic.Anthropic()
+    client = make_client()
     user = f"Context:\n\n{_format_context(hits)}\n\nQuestion: {question}"
     try:
         response = client.messages.create(
