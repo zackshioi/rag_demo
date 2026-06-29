@@ -81,6 +81,28 @@ Passes the gate **and** is not worse than the current version on the golden set 
 | **2 — recommended** (self-hosted OSS) | richer diagnose UI + prompt versioning | **Langfuse** (Apache-2.0, OTEL-native, datasets/scores/prompt management) — primary; **Arize Phoenix** (ELv2, strong RAG eval, one-line local) — lighter alternative. Ingest the same traces; keep self-hosted so data stays local. |
 | **3 — production** (Phase 3+) | managed eval + observability | Bedrock RAG Evaluation · model-invocation logging · CloudWatch. Langfuse can also ingest Bedrock OTEL. |
 
+## Sending traces to Langfuse (Tier-2 — how it works)
+
+When `LANGFUSE_*` keys are set, `tracing.send_langfuse()` mirrors each answer to a
+self-hosted Langfuse (start it with `infra/langfuse/README.md`). The send path:
+
+1. **Read creds from env** (`LANGFUSE_PUBLIC_KEY` / `SECRET_KEY` / `HOST`) → `get_client()`.
+2. **Opt-in guard** — skip if no public key (tracing falls back to JSONL only; never required).
+3. **Open a span** (`start_as_current_observation`, `input = question`) — the root span is the trace.
+4. **Attach output + metadata** (model, refused, top_score, citations, latency).
+5. **Attach scores** (`refused`, `top_score`) via `score_current_trace`.
+6. The SDK **batches and sends asynchronously over HTTP** to Langfuse's ingestion API; the
+   `langfuse-worker` writes to ClickHouse → visible in the UI.
+
+**Flushing is automatic.** The SDK flushes on a background interval (default
+`LANGFUSE_FLUSH_INTERVAL=1s`, or every `LANGFUSE_FLUSH_AT=15` events) and registers an
+`atexit` shutdown for clean exits. Explicit `flush()`/`shutdown()` is only needed when
+`atexit` may not run (`kill -9`, `os._exit`, serverless freeze). Tune cadence via those env
+vars. In a long-running service (Phase 3+), drop any per-call flush and rely on the
+background flusher + a shutdown flush.
+
+The whole sink is **best-effort** (`try/except`): observability must never break an answer.
+
 ## Phasing (build evals as real traces accumulate — the EDD way)
 
 - **Now (Tier-1 skeleton):** `tracing.py` (answer() writes traces) · `evals/golden.jsonl` seed · `error_analysis.ipynb`. So we collect real data from Phase 1.
