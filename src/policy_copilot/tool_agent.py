@@ -27,8 +27,8 @@ from langfuse import observe
 
 from policy_copilot.agent import REFUSAL_TEXT, _extract_citations, cost_usd
 from policy_copilot.chunking import Chunk
-from policy_copilot.index import load_index, search
 from policy_copilot.llm import MODEL, make_client
+from policy_copilot.retrieval import retrieve
 from policy_copilot.tracing import finalize_langfuse, record
 
 load_dotenv()
@@ -111,8 +111,6 @@ def answer_agentic(
     import anthropic
 
     started = time.monotonic()
-    if index is None or chunks is None:
-        index, chunks = load_index()
     client: Any = make_client()
     system = PROMPT_PATH.read_text(encoding="utf-8")
 
@@ -150,7 +148,7 @@ def answer_agentic(
             tool_input = block.input if isinstance(block.input, dict) else {}
             query = str(tool_input.get("query", ""))
             k = int(tool_input.get("k", 5))
-            hits = search(index, chunks, query, max(1, min(k, 10)))
+            hits = retrieve(query, max(1, min(k, 10)), index=index, chunks=chunks)
             for h in hits:
                 retrieved[h.chunk.chunk_id] = h.chunk
             tool_calls.append(
@@ -217,12 +215,11 @@ def _trace(question: str, result: AgenticAnswer, latency_ms: float) -> None:
 
 def main() -> None:
     """Demo: a question that needs a search, and one out of corpus."""
-    index, chunks = load_index()
     for question in [
         "What was AMD's total net revenue in fiscal 2022, and how did it change from 2021?",
         "What was Netflix's subscriber count in 2023?",  # out of corpus
     ]:
-        result = answer_agentic(question, index, chunks)
+        result = answer_agentic(question)
         print(f"Q: {question}")
         print(
             f"  tool calls : {len(result.tool_calls)} -> {[t['query'] for t in result.tool_calls]}"
