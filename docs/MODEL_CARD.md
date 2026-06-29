@@ -39,6 +39,25 @@ changes — and re-run the golden set against the new pin.
 
 ---
 
+## Retrieval (Phase 4)
+
+Selected via `RETRIEVAL_BACKEND` (`retrieval.py`):
+
+| Field | Value |
+|---|---|
+| **FAISS** (default) | local bge-base index over parsed chunks |
+| **Bedrock KB** (`RETRIEVAL_BACKEND=kb`) | **MANAGED** KB `knowledge-base-zack-rag-demo`, id **`5EFMZLJGDE`**, `ap-southeast-2` |
+| KB embeddings | Titan Text Embeddings V2 (1024-dim) |
+| KB source | S3 `zack-rag-demo` (8 parsed `.md`) |
+| KB cost | pay-per-use (indexed size + retrievals); **no standing fee** |
+| Data residency | KB index + retrieval stay in `ap-southeast-2` |
+
+KB excerpts map to `[DOC::NNNN]` citations (doc = S3 filename stem), so refusal and
+the citation verifier are unchanged. KB relevance scores differ in scale from FAISS —
+`REFUSAL_THRESHOLD` is FAISS-calibrated; revisit for KB (Phase 6).
+
+---
+
 ## Pricing (per 1M tokens)
 
 | | Input | Output |

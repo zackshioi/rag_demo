@@ -56,10 +56,12 @@ def _kb_retrieve(query: str, k: int) -> list[SearchHit]:
     import boto3
 
     client = boto3.client("bedrock-agent-runtime", region_name=AWS_REGION)
+    # MANAGED knowledge bases use managedSearchConfiguration; classic
+    # "with vector store" KBs use vectorSearchConfiguration instead.
     response = client.retrieve(
         knowledgeBaseId=KB_ID,
         retrievalQuery={"text": query},
-        retrievalConfiguration={"vectorSearchConfiguration": {"numberOfResults": k}},
+        retrievalConfiguration={"managedSearchConfiguration": {"numberOfResults": k}},
     )
     hits: list[SearchHit] = []
     for i, result in enumerate(response.get("retrievalResults", [])):
