@@ -86,6 +86,7 @@ Each phase proves one pillar, is independently demo-able, and is cost-aware. Liv
 | [`docs/PRD.md`](docs/PRD.md) | Full product requirements — goals, scope, governance, evaluation, delivery |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Five pillars, request lifecycle, AWS service map, security/residency |
 | [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Governance & detection mechanisms (Guardrails, eval, monitoring) with verified sources |
+| [`docs/EVALUATION.md`](docs/EVALUATION.md) | Evaluation-Driven Development (EDD) loop: trace → eval → diagnose → gate → release; tools & CI |
 | [`docs/DEVELOPMENT_RULES.md`](docs/DEVELOPMENT_RULES.md) | DevOps/MLOps/AIOps: git+PR, GitHub Actions eval gate, IaC, versioning, rollout |
 | [`docs/PROGRESS.md`](docs/PROGRESS.md) | Phase-by-phase task tracker, cost ledger, blockers |
 
