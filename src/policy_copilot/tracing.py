@@ -63,6 +63,10 @@ def send_langfuse(question: str, event: dict[str, Any]) -> None:
                     "refused": event.get("refused"),
                     "top_score": event.get("top_score"),
                     "citations": event.get("citations"),
+                    "input_tokens": event.get("input_tokens"),
+                    "output_tokens": event.get("output_tokens"),
+                    "cost_usd": event.get("cost_usd"),
+                    "error": event.get("error"),
                     "latency_ms": event.get("latency_ms"),
                 },
             )
@@ -111,6 +115,10 @@ def send_langfuse_agentic(
                     "refused": event.get("refused"),
                     "n_tool_calls": event.get("n_tool_calls"),
                     "citations": event.get("citations"),
+                    "input_tokens": event.get("input_tokens"),
+                    "output_tokens": event.get("output_tokens"),
+                    "cost_usd": event.get("cost_usd"),
+                    "error": event.get("error"),
                     "latency_ms": event.get("latency_ms"),
                 },
             )

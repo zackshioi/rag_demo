@@ -24,7 +24,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from policy_copilot.agent import MODEL, REFUSAL_TEXT, _extract_citations
+from policy_copilot.agent import MODEL, REFUSAL_TEXT, _extract_citations, cost_usd
 from policy_copilot.chunking import Chunk
 from policy_copilot.index import load_index, search
 from policy_copilot.tracing import record, send_langfuse_agentic
@@ -70,6 +70,10 @@ class AgenticAnswer:
     citations: list[str]
     tool_calls: list[dict[str, Any]]
     verdict: Verdict
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+    error: str | None = None
 
 
 def _format_hits(hits: list[Any]) -> str:
@@ -114,11 +118,20 @@ def answer_agentic(
     retrieved: dict[str, Chunk] = {}
     final_text = REFUSAL_TEXT
     refused = True
+    input_tokens = 0
+    output_tokens = 0
+    error: str | None = None
 
     for _ in range(max_rounds):
-        response = client.messages.create(
-            model=MODEL, max_tokens=1024, system=system, tools=[SEARCH_TOOL], messages=messages
-        )
+        try:
+            response = client.messages.create(
+                model=MODEL, max_tokens=1024, system=system, tools=[SEARCH_TOOL], messages=messages
+            )
+        except anthropic.APIError as exc:  # API failure -> safe refusal, traced as error
+            error = type(exc).__name__
+            break
+        input_tokens += int(response.usage.input_tokens)
+        output_tokens += int(response.usage.output_tokens)
         if response.stop_reason == "refusal":
             break
         if response.stop_reason != "tool_use":
@@ -168,6 +181,10 @@ def answer_agentic(
         citations=citations,
         tool_calls=tool_calls,
         verdict=verdict,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cost_usd=cost_usd(MODEL, input_tokens, output_tokens),
+        error=error,
     )
     _trace(question, result, (time.monotonic() - started) * 1000)
     return result
@@ -185,6 +202,10 @@ def _trace(question: str, result: AgenticAnswer, latency_ms: float) -> None:
         "tool_calls": result.tool_calls,
         "citations_resolve": result.verdict.citations_resolve,
         "numbers_verbatim": result.verdict.numbers_verbatim,
+        "input_tokens": result.input_tokens,
+        "output_tokens": result.output_tokens,
+        "cost_usd": result.cost_usd,
+        "error": result.error,
         "latency_ms": round(latency_ms, 1),
     }
     record(event)
