@@ -116,6 +116,30 @@ must never break an answer.
 
 Golden set note: it starts as a hand-picked seed and grows two ways — (a) **auto-built from FinanceBench** gold answers + evidence, and (b) **from diagnose** (real failures become cases).
 
+**Realized (`evals/`):** `build_golden.py` writes `golden.jsonl` = the **40 FinanceBench rows** over our 8 filings (gold `answer` + `evidence`) **+** hand-authored out-of-corpus **refusal** cases (FinanceBench has none) → 44 cases. `run_eval.py` is the diagnose step: it runs the agent over the set and bins each outcome (`ok` / `wrongly_refused` / `missing_expected` / `no_citation` / `should_have_refused`), printing the failures that become the next fixes. `notebooks/explore_eval.ipynb` is the hands-on version.
+
+### Baseline error rate (2026-06-29, pre-tuning)
+
+`run_eval.py` over all 44 cases — Phase-1 **single-hop** `answer()`, Anthropic API:
+
+| Metric | Value |
+|---|---|
+| Overall pass (`ok`) | **20 / 44 (45%)** |
+| Answerable correct | **16 / 40 (40%)** |
+| Refusal precision (out-of-corpus) | **4 / 4 (100%)** |
+
+Failure modes (of the 40 answerable): **`wrongly_refused` 18 (45%)** · `missing_expected` 5 (12.5%) · `no_citation` 1. Indicative fix probe — re-running `wrongly_refused` cases through **multi-hop** `answer_agentic` recovered ~**1/4**: multi-hop helps but isn't sufficient alone.
+
+Read this baseline correctly: the system is **deliberately conservative** (strict grounding → high refusal precision, but it refuses complex analysis/multi-step questions it can't ground in one hop). Some `missing_expected` are **eval-harness artifacts** — the naive `expected_contains` extractor grabbed a year (`"2022,"`) or a *derived* ratio the filing never states verbatim; the check, not just the model, needs work.
+
+**Tuning levers (the "how do we fine-tune" menu, Phase 6 / production-grade):**
+1. **Prompt** — allow synthesis across multiple cited chunks (vs verbatim-only); recalibrate the `NOT FOUND` bar.
+2. **Route to multi-hop** — send analysis-style questions to the agentic path by default.
+3. **Retrieval** — larger `k`, hybrid BM25 + dense, **table-aware chunking** (many failures are table lookups).
+4. **Threshold** — `REFUSAL_THRESHOLD` (0.45) trades recall vs precision.
+5. **Scope decision** — allow arithmetic on cited figures (derived-ratio questions) or mark them out-of-scope.
+6. **Eval quality first** — replace naive `expected_contains` with RAGAS faithfulness + LLM-judge correctness so the score reflects model quality, not check artifacts.
+
 ---
 
 ## Sources
