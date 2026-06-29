@@ -57,7 +57,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 - [x] `Anthropic` messages loop: retrieve → ground → answer with citations (`agent.py`, Claude Sonnet 4.6) — F1.6
 - [x] Refusal behaviour: low-score pre-check (no API call) + `NOT FOUND` prompt rule + `refusal` stop_reason — F1.7
 - [x] CLI demo script (`cli.py`): REPL + one-shot — F1.8
-- [x] **EDD Tier-1 skeleton** (early start on Phase 6): `tracing.py` (every answer → `data/traces/traces.jsonl`), `evals/golden.jsonl` seed, `error_analysis.ipynb` (diagnose) — see `EVALUATION.md`
+- [x] **EDD Tier-1 skeleton** (early start on Phase 6): `tracing.py` (every answer → `data/traces/traces.jsonl`), `evals/golden.jsonl` seed, `error_analysis.ipynb` (diagnose) — see `EVALUATION.md`. Each trace carries tokens + cost (`cost_usd`) + `error` (API failure → safe refusal, traced). Anthropic SDK **auto-instrumented** (OTEL / `opentelemetry-instrumentation-anthropic`) → Langfuse `generation` with native model/token/cost, **unified into one nested trace** via `@observe` + `finalize_langfuse` (business span → generations)
 - [x] **EDD Tier-2 (optional): self-hosted Langfuse** via Podman (`infra/langfuse/`) — `answer()` mirrors traces to the local UI when `LANGFUSE_*` keys are set (best-effort, no-op without keys)
 
 **Exit criteria:** ✅ cited answers on FinanceBench questions (AMD revenue → "$23.6 billion" [cited]); ✅ refuses on out-of-corpus questions; ✅ every Q&A traced for error analysis.
@@ -66,19 +66,21 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 
 ---
 
-## Phase 2 — Agentic tool-use (Pillar 2: Function calling) · ⬜
+## Phase 2 — Agentic tool-use (Pillar 2: Function calling) · 🟡
 
 **Goal:** retrieval exposed as `search_documents` tool inside the SDK tool-use loop.
 **Proves:** model *decides* to retrieve; multi-step reasoning is auditable.
 **Cost:** ~US$2–8 (API). **Demo:** trace showing tool call → answer.
 
-- [ ] Define `search_documents(query, k)` tool schema
-- [ ] Implement tool-use loop (`tool_use` → `tool_result` → repeat)
-- [ ] Support multi-hop (>1 retrieval) for `complex_qa`
-- [ ] Emit per-request trace (tool calls, sources, answer) — audit precursor (F-7)
-- [ ] Verify verbatim-number behaviour on `math` samples (F-4)
+- [x] Define `search_documents(query, k)` tool schema (`tool_agent.py`) — F2.1
+- [x] Manual ReAct tool-use loop (`tool_use` → `tool_result` → repeat, bounded `MAX_ROUNDS`) — F2.2
+- [x] Multi-hop supported (loop lets Claude search again with refined queries) — F2.3
+- [x] Per-answer trace of the whole trajectory (JSONL + **one nested Langfuse trace**: `answer_agentic` span → auto-instrumented `generation` per round, with native token/cost + verdict scores) — F2.5
+- [x] **Deterministic verifier** (best-practice harness): citations must resolve (hard gate → refuse on fabrication) + numbers-verbatim score — strengthens F2.4
+- [x] CLI `--agentic` flag; `notebooks/explore_agentic.ipynb`
+- [ ] Tune/expand verifier on `math` slice in Phase 6 eval — F2.4 (full)
 
-**Exit criteria:** tool-call trace visible; numbers quoted from source, not generated.
+**Exit criteria:** ✅ trajectory visible (one nested Langfuse trace: `answer_agentic` → generations); ✅ Claude self-drives search; ✅ verifier blocks fabricated citations. Demo: AMD question → 1 search → cited answer (verdict pass); Netflix → search → NOT FOUND.
 
 ---
 

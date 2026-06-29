@@ -1,6 +1,6 @@
 """Unit tests for answer assembly — offline (no model, no API)."""
 
-from policy_copilot.agent import _extract_citations, _format_context, _should_refuse
+from policy_copilot.agent import _extract_citations, _format_context, _should_refuse, cost_usd
 from policy_copilot.chunking import Chunk
 from policy_copilot.index import SearchHit
 
@@ -33,3 +33,12 @@ def test_format_context_includes_id_and_text() -> None:
     rendered = _format_context([_hit(0.7)])
     assert "AMD_2022_10K::0153" in rendered
     assert "Net revenue" in rendered
+
+
+def test_cost_usd_known_model() -> None:
+    # 1M input @ $3 + 1M output @ $15 = $18
+    assert cost_usd("claude-sonnet-4-6", 1_000_000, 1_000_000) == 18.0
+
+
+def test_cost_usd_unknown_model_is_zero() -> None:
+    assert cost_usd("some-other-model", 1000, 2000) == 0.0

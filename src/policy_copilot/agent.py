@@ -23,11 +23,13 @@ from typing import Any
 import anthropic
 from anthropic.types import TextBlock
 from dotenv import load_dotenv
+from langfuse import observe
 
 from policy_copilot.index import SearchHit, load_index, search
-from policy_copilot.tracing import record, send_langfuse
+from policy_copilot.tracing import finalize_langfuse, record, setup_auto_instrumentation
 
 load_dotenv()
+setup_auto_instrumentation()  # auto-trace Claude calls -> Langfuse (native token/cost)
 
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system_prompt.md"
@@ -37,15 +39,34 @@ REFUSAL_TEXT = "NOT FOUND"
 
 _CITATION = re.compile(r"\[([A-Za-z0-9_]+::\d{3,})\]")
 
+# USD per 1M tokens (input, output). Extend as models are added.
+PRICING: dict[str, tuple[float, float]] = {
+    "claude-sonnet-4-6": (3.0, 15.0),
+    "claude-opus-4-8": (5.0, 25.0),
+    "claude-haiku-4-5": (1.0, 5.0),
+}
+
+
+def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Estimate USD cost from token counts (0.0 for unknown models)."""
+    rate = PRICING.get(model)
+    if rate is None:
+        return 0.0
+    return round(input_tokens / 1e6 * rate[0] + output_tokens / 1e6 * rate[1], 6)
+
 
 @dataclass(frozen=True)
 class Answer:
-    """A generated answer with provenance."""
+    """A generated answer with provenance and usage."""
 
     text: str
     refused: bool
     citations: list[str]
     hits: list[SearchHit]
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+    error: str | None = None
 
 
 def _should_refuse(hits: list[SearchHit]) -> bool:
@@ -79,13 +100,18 @@ def _trace(question: str, result: Answer, latency_ms: float) -> Answer:
         "retrieved": [
             {"chunk_id": h.chunk.chunk_id, "score": round(h.score, 4)} for h in result.hits
         ],
+        "input_tokens": result.input_tokens,
+        "output_tokens": result.output_tokens,
+        "cost_usd": result.cost_usd,
+        "error": result.error,
         "latency_ms": round(latency_ms, 1),
     }
     record(event)
-    send_langfuse(question, event)
+    finalize_langfuse(question, event)
     return result
 
 
+@observe(name="answer", capture_input=False, capture_output=False)
 def answer(
     question: str,
     index: Any = None,
@@ -104,20 +130,46 @@ def answer(
 
     client = anthropic.Anthropic()
     user = f"Context:\n\n{_format_context(hits)}\n\nQuestion: {question}"
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        system=PROMPT_PATH.read_text(encoding="utf-8"),
-        messages=[{"role": "user", "content": user}],
-    )
+    try:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            system=PROMPT_PATH.read_text(encoding="utf-8"),
+            messages=[{"role": "user", "content": user}],
+        )
+    except anthropic.APIError as exc:  # API/network failure -> safe refusal, traced as error
+        result = Answer(
+            text=REFUSAL_TEXT, refused=True, citations=[], hits=hits, error=type(exc).__name__
+        )
+        return _trace(question, result, (time.monotonic() - started) * 1000)
+
+    in_tok, out_tok = int(response.usage.input_tokens), int(response.usage.output_tokens)
+    cost = cost_usd(MODEL, in_tok, out_tok)
+
     if response.stop_reason == "refusal":
-        result = Answer(text=REFUSAL_TEXT, refused=True, citations=[], hits=hits)
+        result = Answer(
+            text=REFUSAL_TEXT,
+            refused=True,
+            citations=[],
+            hits=hits,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+            cost_usd=cost,
+        )
         return _trace(question, result, (time.monotonic() - started) * 1000)
 
     text = "".join(b.text for b in response.content if isinstance(b, TextBlock)).strip()
     refused = text.upper().startswith(REFUSAL_TEXT)
     citations = [] if refused else _extract_citations(text)
-    result = Answer(text=text, refused=refused, citations=citations, hits=hits)
+    result = Answer(
+        text=text,
+        refused=refused,
+        citations=citations,
+        hits=hits,
+        input_tokens=in_tok,
+        output_tokens=out_tok,
+        cost_usd=cost,
+    )
     return _trace(question, result, (time.monotonic() - started) * 1000)
 
 

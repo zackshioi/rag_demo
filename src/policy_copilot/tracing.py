@@ -22,6 +22,31 @@ from typing import Any
 TRACE_DIR = Path("data/traces")
 TRACE_FILE = TRACE_DIR / "traces.jsonl"
 
+_instrumented = False
+
+
+def setup_auto_instrumentation() -> None:
+    """Auto-instrument the Anthropic SDK -> Langfuse (native model/token/cost).
+
+    OpenTelemetry auto-instrumentation: every Claude call becomes a `generation`
+    observation with model + usage, so Langfuse computes native cost. Idempotent;
+    no-op without LANGFUSE_PUBLIC_KEY. Because answer()/answer_agentic() run under
+    an `@observe` span, these generations nest under it (see finalize_langfuse) —
+    one clean trace, not a separate one.
+    """
+    global _instrumented
+    if _instrumented or not os.environ.get("LANGFUSE_PUBLIC_KEY"):
+        return
+    try:
+        from langfuse import get_client
+        from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
+
+        get_client()  # sets up the Langfuse OTEL tracer provider from env
+        AnthropicInstrumentor().instrument()
+        _instrumented = True
+    except Exception:  # noqa: BLE001 — observability must never break the answer
+        pass
+
 
 def record(event: dict[str, Any]) -> None:
     """Append one trace event as a JSON line. Best-effort — never raises."""
@@ -42,10 +67,30 @@ def load_traces(path: Path = TRACE_FILE) -> list[dict[str, Any]]:
     return [json.loads(line) for line in lines if line.strip()]
 
 
-def send_langfuse(question: str, event: dict[str, Any]) -> None:
-    """Mirror one event to a self-hosted Langfuse, if configured (Tier-2).
+# Metadata keys mirrored onto the Langfuse span (whichever the event carries).
+_META_KEYS = (
+    "model",
+    "refused",
+    "top_score",
+    "n_tool_calls",
+    "citations",
+    "input_tokens",
+    "output_tokens",
+    "cost_usd",
+    "error",
+    "latency_ms",
+)
+# Numeric/boolean event fields published as Langfuse scores (skipped if absent).
+_SCORE_KEYS = ("top_score", "citations_resolve", "numbers_verbatim")
 
-    No-ops when LANGFUSE_PUBLIC_KEY is unset (CI / offline). Never raises.
+
+def finalize_langfuse(question: str, event: dict[str, Any]) -> None:
+    """Attach business semantics to the *current* @observe span/trace (Tier-2).
+
+    Called from inside an `@observe`-decorated answer function, so the
+    auto-instrumented Claude `generation`s already nest under this span — giving
+    one clean trace (business span -> generations) instead of two separate ones.
+    No-op without LANGFUSE_PUBLIC_KEY; never raises.
     """
     if not os.environ.get("LANGFUSE_PUBLIC_KEY"):
         return
@@ -53,23 +98,12 @@ def send_langfuse(question: str, event: dict[str, Any]) -> None:
         from langfuse import get_client
 
         client: Any = get_client()
-        with client.start_as_current_observation(
-            as_type="span", name="answer", input={"question": question}
-        ):
-            client.update_current_span(
-                output=event.get("answer"),
-                metadata={
-                    "model": event.get("model"),
-                    "refused": event.get("refused"),
-                    "top_score": event.get("top_score"),
-                    "citations": event.get("citations"),
-                    "latency_ms": event.get("latency_ms"),
-                },
-            )
-            client.score_current_trace(name="refused", value=int(bool(event.get("refused"))))
-            top_score = event.get("top_score")
-            if top_score is not None:
-                client.score_current_trace(name="top_score", value=float(top_score))
-        client.flush()
+        client.set_current_trace_io(input={"question": question}, output=event.get("answer"))
+        client.update_current_span(metadata={k: event.get(k) for k in _META_KEYS})
+        client.score_current_trace(name="refused", value=int(bool(event.get("refused"))))
+        for key in _SCORE_KEYS:
+            value = event.get(key)
+            if value is not None:
+                client.score_current_trace(name=key, value=float(value))
     except Exception:  # noqa: BLE001 — observability must never break the answer
         pass
