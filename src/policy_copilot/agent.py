@@ -23,8 +23,9 @@ from anthropic.types import TextBlock
 from dotenv import load_dotenv
 from langfuse import observe
 
-from policy_copilot.index import SearchHit, load_index, search
+from policy_copilot.index import SearchHit, load_index
 from policy_copilot.llm import MODEL, make_client
+from policy_copilot.retrieval import retrieve
 from policy_copilot.tracing import finalize_langfuse, record, setup_auto_instrumentation
 
 load_dotenv()
@@ -122,9 +123,7 @@ def answer(
 ) -> Answer:
     """Answer a question from the corpus, with citations or an explicit refusal."""
     started = time.monotonic()
-    if index is None or chunks is None:
-        index, chunks = load_index()
-    hits = search(index, chunks, question, k=k)
+    hits = retrieve(question, k=k, index=index, chunks=chunks)
 
     if _should_refuse(hits):
         result = Answer(text=REFUSAL_TEXT, refused=True, citations=[], hits=hits)

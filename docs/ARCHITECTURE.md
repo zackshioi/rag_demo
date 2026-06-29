@@ -38,9 +38,9 @@ This document expands PRD §9 into a buildable architecture: the five mandatory 
                   └───────────────┬──────────┘   └─────────────────────────┘
                                   │ retrieve                  ▲ Pillar 2 = the tool-use binding
                   ┌───────────────▼──────────────────────────┐
-                  │  Amazon Bedrock Knowledge Base            │  ◀── Pillar 4
-                  │  chunk → embed (Titan/Cohere) →           │
-                  │  OpenSearch Serverless vector store       │
+                  │  Amazon Bedrock Knowledge Base (MANAGED)  │  ◀── Pillar 4
+                  │  chunk → embed (Titan V2) →               │
+                  │  AWS-managed vector store (pay-per-use)    │
                   └───────────────┬──────────────────────────┘
                                   │ source-of-truth
                   ┌───────────────▼──────────────────────────┐
@@ -74,14 +74,15 @@ This document expands PRD §9 into a buildable architecture: the five mandatory 
 - **Why Bedrock:** AWS-native auth (IAM), data residency, no prompt/output retention for training, single billing/audit plane.
 
 ### Pillar 4 — Bedrock Knowledge Bases (managed RAG)
-- **Pipeline:** S3 corpus → managed chunking → embeddings (Titan/Cohere) → **S3 Vectors** index (default).
-- **Retrieval:** `bedrock-agent-runtime:Retrieve` (or `RetrieveAndGenerate`), returning chunks with native source attribution used for citations.
+- **Pipeline:** S3 corpus (raw docs) → managed chunking → embeddings (Titan V2) → managed vector store. **Retrieval is pluggable** (`retrieval.py`, `RETRIEVAL_BACKEND=faiss|kb`); KB excerpts map to `[DOC::NNNN]` citations so refusal + verifier are unchanged.
+- **Retrieval:** `bedrock-agent-runtime:Retrieve`, returning chunks with native source attribution (S3 object) used for citations.
 - **Vector store choice (verified):**
   - **S3 Vectors (default)** — GA Dec 2025, `ap-southeast-2` supported, **pay-per-use with no OCU floor** (~90% cheaper at scale per AWS), ~100 ms warm latency. **Semantic-only — no native hybrid (keyword+vector) search**, limited metadata filters (no `startsWith`/`stringContains`).
   - **OpenSearch Serverless (optional upgrade)** — adopt when you need hybrid search, rich metadata filtering, or low-latency high-QPS. Carries the standing OCU cost; provision only when justified, tear down when idle.
   - **Tiered pattern (AWS-recommended):** S3 Vectors as the cheap base, export "hot" vectors to OpenSearch when QPS/latency demand it.
 - **Hybrid retrieval:** if keyword+vector is needed in the demo without OpenSearch, do it at the app layer — vector via S3 Vectors + in-process BM25 (e.g. SQLite FTS5 / `rank-bm25`), fused with Reciprocal Rank Fusion (RRF); optionally add a Bedrock reranker over over-fetched candidates. Production scale → OpenSearch native hybrid.
 - **KB variants (verified):** *customer-managed* KB gives full chunking control + `RetrieveAndGenerate`; the newer *Bedrock-managed* KB auto-owns the store but restricts chunking and does **not** support `RetrieveAndGenerate`. Pick customer-managed for citation/chunking control.
+- **As-built (Phase 4):** we provisioned a **MANAGED** KB (`knowledge-base-zack-rag-demo`, id `5EFMZLJGDE`, `ap-southeast-2`, Titan V2) from 8 pre-parsed `.md` in S3 `zack-rag-demo`. MANAGED is also **pay-per-use, no standing fee** (verified from the AWS launch blog), so cost-safe; we accept its limits (auto-owned store, no `RetrieveAndGenerate`) because we use only `Retrieve` and keep chunking quality in hand by uploading clean markdown. **Data-flow clarity:** raw docs live in the **S3 bucket** (object storage, *not* a vector DB); the vectors live in the KB's **AWS-managed internal store** — not our doc bucket, and not a separate **S3 Vectors** index (which is itself a distinct "S3-as-vector-DB" service we did *not* use here). Both MANAGED and S3 Vectors are pay-per-use with no OCU floor.
 
 ### Pillar 5 — Bedrock Agents (managed orchestration)
 - **Role:** hosts the agent instructions (system prompt encoding governance: cite sources, quote numbers verbatim, refuse if unsupported), wires the KB as an action/knowledge source, and attaches Guardrails.

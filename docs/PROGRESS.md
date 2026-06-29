@@ -18,7 +18,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 |---|---|---|
 | **M0** — Repo + CI foundation | Phase 0 | ⬜ Not started |
 | **M1** — Local agentic RAG | Phases 1–2 | ✅ Done |
-| **M2** — AWS-native governed agent | Phases 3–5 | 🟡 In progress (Phase 3 ✅) |
+| **M2** — AWS-native governed agent | Phases 3–5 | 🟡 In progress (Phases 3–4 ✅) |
 | **M3** — Demo-ready w/ eval gate | Phase 6 | ⬜ Not started |
 
 ---
@@ -101,22 +101,21 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 
 ---
 
-## Phase 4 — Bedrock Knowledge Base (Pillar 4) · ⬜
+## Phase 4 — Bedrock Knowledge Base (Pillar 4) · ✅
 
-**Goal:** managed chunk/embed/index → **S3 Vectors** (default); retrieval via KB API.
-**Proves:** managed RAG.
-**Cost:** ✅ **S3 Vectors = pay-per-use, no OCU floor** (a few US$ for the demo corpus). OpenSearch Serverless only if hybrid/high-QPS is needed (then the standing OCU cost returns — tear down when idle).
-**Demo:** KB-backed retrieval w/ native citations; ingestion job.
+**Goal:** managed chunk/embed/index; retrieval via KB `Retrieve` API (data-resident).
+**Proves:** managed RAG with native source attribution; same answer loop.
+**Cost:** ✅ **MANAGED KB = pay-per-use, no standing fee** (AWS-managed backend — verified from the AWS launch blog: billed on indexed-data size + retrievals only). Pennies for our 8-doc corpus.
+**Demo:** KB-backed retrieval with citations; identical loop via a backend switch.
 
-- [ ] Upload deduped corpus to S3 (`ap-southeast-2`)
-- [ ] Use **customer-managed KB** (keeps chunking control + `RetrieveAndGenerate`); choose embedding model (Titan/Cohere) + chunking strategy
-- [ ] Provision **S3 Vectors** index as the vector store (KMS-encrypted) — confirm `ap-southeast-2` in console
-- [ ] Point `search_documents` tool at KB `Retrieve` API
-- [ ] Validate native source attribution flows into citations
-- [ ] (If hybrid needed) decide app-layer BM25+RRF vs OpenSearch upgrade
-- [ ] Provision all KB/store via IaC (`AWS::Bedrock::KnowledgeBase` / CDK) for reproducible teardown
+- [x] Upload 8 parsed `.md` to S3 `zack-rag-demo` (`ap-southeast-2`)
+- [x] **MANAGED** Knowledge Base `knowledge-base-zack-rag-demo` (id `5EFMZLJGDE`), Titan Text Embeddings V2, synced. (Note: we ended up with the new MANAGED type, not "with vector store + S3 Vectors" — but MANAGED is also pay-per-use with no OCU floor, so cost-safe.)
+- [x] Retrieval backend switch (`retrieval.py`, `RETRIEVAL_BACKEND=kb` + `KB_ID`) → KB `Retrieve` API (`managedSearchConfiguration`); KB results map to `[DOC::NNNN]` citations so refusal pre-check + citation verifier are unchanged
+- [x] Validate native source attribution flows into citations — AMD → "$23,601 million" `[AMD_2022_10K::0002]`; Boeing agentic → cited, `verified=True`; France → `NOT FOUND`
+- [ ] IaC (CloudFormation/CDK) for reproducible teardown — **deferred** (KB built via console; managed-KB IaC support is new)
+- [ ] Revisit `REFUSAL_THRESHOLD` for KB (KB relevance scores are on a different scale than FAISS cosine; AMD top hit scored 0.52) — Phase 6 tuning
 
-**Exit criteria:** answers cite KB-retrieved sources; reproducible via IaC.
+**Exit criteria:** ✅ answers cite KB-retrieved sources; data stays in `ap-southeast-2`. IaC reproducibility deferred.
 
 ---
 
