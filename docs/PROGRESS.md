@@ -17,8 +17,8 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 | Milestone | Scope | Status |
 |---|---|---|
 | **M0** — Repo + CI foundation | Phase 0 | ⬜ Not started |
-| **M1** — Local agentic RAG | Phases 1–2 | ⬜ Not started |
-| **M2** — AWS-native governed agent | Phases 3–5 | ⬜ Not started |
+| **M1** — Local agentic RAG | Phases 1–2 | ✅ Done |
+| **M2** — AWS-native governed agent | Phases 3–5 | 🟡 In progress (Phase 3 ✅) |
 | **M3** — Demo-ready w/ eval gate | Phase 6 | ⬜ Not started |
 
 ---
@@ -84,7 +84,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 
 ---
 
-## Phase 3 — Claude on Bedrock (Pillar 3) · 🟡
+## Phase 3 — Claude on Bedrock (Pillar 3) · ✅
 
 **Goal:** swap `Anthropic` → `AnthropicBedrock`, region-pinned to `ap-southeast-2`.
 **Proves:** AWS-native, data-resident inference; same loop.
@@ -92,11 +92,12 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 
 - [x] **BLOCKER CHECK:** confirmed `au.anthropic.claude-sonnet-4-6` **ACTIVE** in `ap-southeast-2` — the **AU inference profile routes only within Australia** (ap-southeast-2 / ap-southeast-4), i.e. data stays in-country (PRD §14.1)
 - [x] IAM: AWS managed `AmazonBedrockFullAccess` on a dedicated CLI user (demo; tighten to least-priv later)
+- [x] Anthropic *use case details* form submitted in the Bedrock console (one-time per account); access granted
 - [x] Swap client to `AnthropicBedrock` via `LLM_BACKEND` switch (`llm.py`); pinned `au.anthropic.claude-sonnet-4-6`. `cost_usd` resolves profile ids; `response.usage` works on Bedrock (token/cost captured)
-- [ ] Record pinned version in model card
-- [ ] Re-run Phase 1/2 demos against Bedrock — ⛔ **blocked on AWS console: submit the Anthropic *use case details* form** (Bedrock returns 404 until then; our error-handling safely degrades to `NOT FOUND` + traces `error=NotFoundError`). Code verified to reach Bedrock; awaiting account approval (~15 min after form).
+- [x] Record pinned version in model card — see `docs/MODEL_CARD.md`
+- [x] Re-run Phase 1/2 demos against Bedrock — AMD → "$23.6 billion" [cited]; Boeing agentic → cited, `verified=True`; France → `NOT FOUND`. Same answers/citations as the API backend.
 
-**Exit criteria:** same answers/citations via Bedrock; version pinned & recorded. *(Pending use-case-form approval, then re-run.)*
+**Exit criteria:** ✅ same answers/citations via Bedrock; ✅ version pinned & recorded (`MODEL_CARD.md`).
 
 ---
 
