@@ -1,37 +1,55 @@
-"""Interactive CLI for Policy Copilot (Phase 1, F1.8).
+"""Interactive CLI for Policy Copilot (Phase 1 F1.8 + Phase 2 agentic mode).
 
-  uv run python -m policy_copilot.cli                 # REPL
-  uv run python -m policy_copilot.cli "your question" # one-shot
+  uv run python -m policy_copilot.cli                       # direct RAG, REPL
+  uv run python -m policy_copilot.cli "question"            # direct RAG, one-shot
+  uv run python -m policy_copilot.cli --agentic "question"  # agentic (Claude drives search)
 
 Each question is answered with citations (or NOT FOUND) and a trace is recorded
-to data/traces/traces.jsonl — open notebooks/error_analysis.ipynb to review them.
+to data/traces/traces.jsonl (+ Langfuse if configured).
 """
 
 from __future__ import annotations
 
 import sys
 
-from policy_copilot.agent import Answer, answer
 from policy_copilot.index import load_index
 
 
-def _show(result: Answer) -> None:
-    if result.refused:
+def _show(refused: bool, text: str, citations: list[str]) -> None:
+    if refused:
         print("NOT FOUND")
-    else:
-        print(result.text)
-        if result.citations:
-            print("sources:", ", ".join(result.citations))
+        return
+    print(text)
+    if citations:
+        print("sources:", ", ".join(citations))
 
 
 def main() -> None:
-    index, chunks = load_index()
     args = sys.argv[1:]
-    if args:  # one-shot mode
-        _show(answer(" ".join(args), index, chunks))
+    agentic = args[:1] == ["--agentic"]
+    if agentic:
+        args = args[1:]
+    index, chunks = load_index()
+
+    def ask(question: str) -> None:
+        if agentic:
+            from policy_copilot.tool_agent import answer_agentic
+
+            result = answer_agentic(question, index, chunks)
+            _show(result.refused, result.text, result.citations)
+            verified = result.verdict.citations_resolve and result.verdict.numbers_verbatim
+            print(f"[agentic: {len(result.tool_calls)} search(es); verified={verified}]")
+        else:
+            from policy_copilot.agent import answer
+
+            direct = answer(question, index, chunks)
+            _show(direct.refused, direct.text, direct.citations)
+
+    if args:  # one-shot
+        ask(" ".join(args))
         return
 
-    print("Policy Copilot — ask about the indexed filings. Type 'exit' to quit.")
+    print(f"Policy Copilot ({'agentic' if agentic else 'direct'}) — ask away. Type 'exit' to quit.")
     while True:
         try:
             question = input("\n> ").strip()
@@ -40,7 +58,7 @@ def main() -> None:
             break
         if not question or question.lower() in {"exit", "quit"}:
             break
-        _show(answer(question, index, chunks))
+        ask(question)
 
 
 if __name__ == "__main__":

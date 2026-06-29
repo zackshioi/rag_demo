@@ -73,3 +73,54 @@ def send_langfuse(question: str, event: dict[str, Any]) -> None:
         client.flush()
     except Exception:  # noqa: BLE001 — observability must never break the answer
         pass
+
+
+def send_langfuse_agentic(
+    question: str, event: dict[str, Any], tool_calls: list[dict[str, Any]]
+) -> None:
+    """Mirror an agentic answer to Langfuse with one child span per tool call.
+
+    No-ops without LANGFUSE_PUBLIC_KEY. Never raises. The nested spans let you
+    see the model's search trajectory (search -> search -> answer) in the UI.
+    """
+    if not os.environ.get("LANGFUSE_PUBLIC_KEY"):
+        return
+    try:
+        from langfuse import get_client
+
+        client: Any = get_client()
+        with client.start_as_current_observation(
+            as_type="span", name="answer_agentic", input={"question": question}
+        ):
+            for call in tool_calls:
+                with client.start_as_current_observation(
+                    as_type="span",
+                    name="search_documents",
+                    input={"query": call.get("query"), "k": call.get("k")},
+                ):
+                    client.update_current_span(
+                        output={
+                            "chunk_ids": call.get("chunk_ids"),
+                            "top_score": call.get("top_score"),
+                        }
+                    )
+            client.update_current_span(
+                output=event.get("answer"),
+                metadata={
+                    "model": event.get("model"),
+                    "refused": event.get("refused"),
+                    "n_tool_calls": event.get("n_tool_calls"),
+                    "citations": event.get("citations"),
+                    "latency_ms": event.get("latency_ms"),
+                },
+            )
+            client.score_current_trace(name="refused", value=int(bool(event.get("refused"))))
+            client.score_current_trace(
+                name="citations_resolve", value=int(bool(event.get("citations_resolve")))
+            )
+            client.score_current_trace(
+                name="numbers_verbatim", value=int(bool(event.get("numbers_verbatim")))
+            )
+        client.flush()
+    except Exception:  # noqa: BLE001 — observability must never break the answer
+        pass
