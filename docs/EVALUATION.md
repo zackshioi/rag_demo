@@ -103,6 +103,13 @@ background flusher + a shutdown flush.
 
 The whole sink is **best-effort** (`try/except`): observability must never break an answer.
 
+**Auto-instrumentation (native cost).** `setup_auto_instrumentation()` enables OpenTelemetry
+auto-instrumentation of the Anthropic SDK (`opentelemetry-instrumentation-anthropic`), so every
+Claude call becomes a Langfuse `generation` with model + token usage → Langfuse computes **native
+cost** and powers its cost dashboards. This is the recommended combo: **auto-instrument for the LLM
+call's token/cost + manual spans for business semantics** (trajectory, verdict). No-op without
+`LANGFUSE_*` keys.
+
 ## Phasing (build evals as real traces accumulate — the EDD way)
 
 - **Now (Tier-1 skeleton):** `tracing.py` (answer() writes traces) · `evals/golden.jsonl` seed · `error_analysis.ipynb`. So we collect real data from Phase 1.

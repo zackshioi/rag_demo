@@ -22,6 +22,30 @@ from typing import Any
 TRACE_DIR = Path("data/traces")
 TRACE_FILE = TRACE_DIR / "traces.jsonl"
 
+_instrumented = False
+
+
+def setup_auto_instrumentation() -> None:
+    """Auto-instrument the Anthropic SDK -> Langfuse (native model/token/cost).
+
+    OpenTelemetry auto-instrumentation: every Claude call becomes a `generation`
+    observation with model + usage, so Langfuse computes native cost. Idempotent;
+    no-op without LANGFUSE_PUBLIC_KEY. Our manual spans still add business
+    semantics (trajectory, verdict) on top.
+    """
+    global _instrumented
+    if _instrumented or not os.environ.get("LANGFUSE_PUBLIC_KEY"):
+        return
+    try:
+        from langfuse import get_client
+        from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
+
+        get_client()  # sets up the Langfuse OTEL tracer provider from env
+        AnthropicInstrumentor().instrument()
+        _instrumented = True
+    except Exception:  # noqa: BLE001 — observability must never break the answer
+        pass
+
 
 def record(event: dict[str, Any]) -> None:
     """Append one trace event as a JSON line. Best-effort — never raises."""

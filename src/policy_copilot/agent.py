@@ -25,9 +25,10 @@ from anthropic.types import TextBlock
 from dotenv import load_dotenv
 
 from policy_copilot.index import SearchHit, load_index, search
-from policy_copilot.tracing import record, send_langfuse
+from policy_copilot.tracing import record, send_langfuse, setup_auto_instrumentation
 
 load_dotenv()
+setup_auto_instrumentation()  # auto-trace Claude calls -> Langfuse (native token/cost)
 
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system_prompt.md"
