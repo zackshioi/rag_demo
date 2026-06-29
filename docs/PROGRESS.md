@@ -75,12 +75,12 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 - [x] Define `search_documents(query, k)` tool schema (`tool_agent.py`) — F2.1
 - [x] Manual ReAct tool-use loop (`tool_use` → `tool_result` → repeat, bounded `MAX_ROUNDS`) — F2.2
 - [x] Multi-hop supported (loop lets Claude search again with refined queries) — F2.3
-- [x] Per-call trace of the whole trajectory (each tool call → JSONL + Langfuse nested spans) — F2.5
+- [x] Per-answer trace of the whole trajectory (JSONL + **one nested Langfuse trace**: `answer_agentic` span → auto-instrumented `generation` per round, with native token/cost + verdict scores) — F2.5
 - [x] **Deterministic verifier** (best-practice harness): citations must resolve (hard gate → refuse on fabrication) + numbers-verbatim score — strengthens F2.4
 - [x] CLI `--agentic` flag; `notebooks/explore_agentic.ipynb`
 - [ ] Tune/expand verifier on `math` slice in Phase 6 eval — F2.4 (full)
 
-**Exit criteria:** ✅ tool-call trace visible (Langfuse nested spans); ✅ Claude self-drives search; ✅ verifier blocks fabricated citations. Demo: AMD question → 1 search → cited answer (verdict pass); Netflix → search → NOT FOUND.
+**Exit criteria:** ✅ trajectory visible (one nested Langfuse trace: `answer_agentic` → generations); ✅ Claude self-drives search; ✅ verifier blocks fabricated citations. Demo: AMD question → 1 search → cited answer (verdict pass); Netflix → search → NOT FOUND.
 
 ---
 

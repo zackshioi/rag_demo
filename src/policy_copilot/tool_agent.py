@@ -10,7 +10,7 @@ Best-practice harness design (see EVALUATION.md / Phase 2 notes):
 - one bounded while-loop; explicit max rounds (no runaway)
 - one well-documented tool (the agent-computer interface)
 - tool errors fed back to the model, not raised
-- every tool call traced (JSONL + optional Langfuse nested spans)
+- whole trajectory traced (JSONL + one nested Langfuse trace: @observe span → generations)
 - a deterministic verifier > trusting the model to self-check
 """
 

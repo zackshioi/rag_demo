@@ -30,8 +30,9 @@ def setup_auto_instrumentation() -> None:
 
     OpenTelemetry auto-instrumentation: every Claude call becomes a `generation`
     observation with model + usage, so Langfuse computes native cost. Idempotent;
-    no-op without LANGFUSE_PUBLIC_KEY. Our manual spans still add business
-    semantics (trajectory, verdict) on top.
+    no-op without LANGFUSE_PUBLIC_KEY. Because answer()/answer_agentic() run under
+    an `@observe` span, these generations nest under it (see finalize_langfuse) —
+    one clean trace, not a separate one.
     """
     global _instrumented
     if _instrumented or not os.environ.get("LANGFUSE_PUBLIC_KEY"):
