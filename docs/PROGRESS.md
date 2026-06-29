@@ -58,6 +58,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 - [x] Refusal behaviour: low-score pre-check (no API call) + `NOT FOUND` prompt rule + `refusal` stop_reason — F1.7
 - [x] CLI demo script (`cli.py`): REPL + one-shot — F1.8
 - [x] **EDD Tier-1 skeleton** (early start on Phase 6): `tracing.py` (every answer → `data/traces/traces.jsonl`), `evals/golden.jsonl` seed, `error_analysis.ipynb` (diagnose) — see `EVALUATION.md`
+- [x] **EDD Tier-2 (optional): self-hosted Langfuse** via Podman (`infra/langfuse/`) — `answer()` mirrors traces to the local UI when `LANGFUSE_*` keys are set (best-effort, no-op without keys)
 
 **Exit criteria:** ✅ cited answers on FinanceBench questions (AMD revenue → "$23.6 billion" [cited]); ✅ refuses on out-of-corpus questions; ✅ every Q&A traced for error analysis.
 

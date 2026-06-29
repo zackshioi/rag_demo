@@ -25,7 +25,7 @@ from anthropic.types import TextBlock
 from dotenv import load_dotenv
 
 from policy_copilot.index import SearchHit, load_index, search
-from policy_copilot.tracing import record
+from policy_copilot.tracing import record, send_langfuse
 
 load_dotenv()
 
@@ -68,21 +68,21 @@ def _extract_citations(text: str) -> list[str]:
 
 
 def _trace(question: str, result: Answer, latency_ms: float) -> Answer:
-    """Record one trace event, then return the answer unchanged."""
-    record(
-        {
-            "question": question,
-            "model": MODEL,
-            "refused": result.refused,
-            "answer": result.text,
-            "citations": result.citations,
-            "top_score": round(result.hits[0].score, 4) if result.hits else None,
-            "retrieved": [
-                {"chunk_id": h.chunk.chunk_id, "score": round(h.score, 4)} for h in result.hits
-            ],
-            "latency_ms": round(latency_ms, 1),
-        }
-    )
+    """Record one trace event (JSONL + optional Langfuse), then return unchanged."""
+    event = {
+        "question": question,
+        "model": MODEL,
+        "refused": result.refused,
+        "answer": result.text,
+        "citations": result.citations,
+        "top_score": round(result.hits[0].score, 4) if result.hits else None,
+        "retrieved": [
+            {"chunk_id": h.chunk.chunk_id, "score": round(h.score, 4)} for h in result.hits
+        ],
+        "latency_ms": round(latency_ms, 1),
+    }
+    record(event)
+    send_langfuse(question, event)
     return result
 
 
