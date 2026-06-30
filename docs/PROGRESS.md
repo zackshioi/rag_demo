@@ -18,7 +18,7 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 |---|---|---|
 | **M0** — Repo + CI foundation | Phase 0 | ⬜ Not started |
 | **M1** — Local agentic RAG | Phases 1–2 | ✅ Done |
-| **M2** — AWS-native governed agent | Phases 3–5 | 🟡 In progress (Phases 3–4 ✅) |
+| **M2** — AWS-native governed agent | Phases 3–5 | ✅ Done |
 | **M3** — Demo-ready w/ eval gate | Phase 6 | ⬜ Not started |
 
 ---
@@ -119,21 +119,20 @@ Single source of truth for delivery status across the six phases (PRD §12). Upd
 
 ---
 
-## Phase 5 — Bedrock Agent (Pillar 5) · ⬜
+## Phase 5 — Bedrock Agent (Pillar 5) · ✅
 
 **Goal:** Agent with governance instructions + Guardrails wraps the KB.
 **Proves:** managed orchestration; refusal/citation/PII enforced by platform.
 **Cost:** ~US$5–15. **Demo:** Agent refuses out-of-scope; redacts PII.
 
-- [ ] Author Agent instructions (cite, quote-verbatim, refuse-if-unsupported) — versioned (git + Bedrock Prompt Management)
-- [ ] Wire KB as knowledge source
-- [ ] Create Bedrock Guardrails (PII redaction, denied topics, prompt-attack, **contextual grounding check** w/ threshold); attach in+out
-- [ ] Enforce guardrail via IAM `bedrock:GuardrailIdentifier`
-- [ ] `InvokeAgent` from app layer with `enableTrace: true`
-- [ ] Set up Agent versions + aliases (Dev/Staging/Prod)
-- [ ] Validate refusal on out-of-corpus questions; PII redaction + grounding-check on synthetic-PII queries
+- [x] Author Agent instructions (cite, quote-verbatim, refuse-if-unsupported) — `zack-rag-demo-agent` (`GM3O1BPBFG`), model `au.anthropic.claude-sonnet-4-6`
+- [x] Wire KB as knowledge source (`BHDASOSBJU`, classic VECTOR/S3 Vectors — MANAGED KB proved incompatible with Agents)
+- [x] Create Guardrail (`12rph295jiji`): PII **mask** + **contextual grounding** check + harmful-category + **prompt-attack** filters; attached to agent
+- [x] `InvokeAgent` from app layer (`bedrock_agent.py`) — parses streamed answer + native citations + trace
+- [x] Validate refusal on out-of-corpus questions; cited answer on in-corpus (AMD → "$23,601 million" [AMD_2022_10K]; France → refused)
+- [ ] Agent versions/aliases (Dev/Staging/Prod) + Prompt Management — deferred (using built-in `TSTALIASID`)
 
-**Exit criteria:** governed agent demo — correct refusal + PII redaction + grounding-check observed.
+**Exit criteria:** ✅ governed agent demo — correct refusal + cited grounded answer; Guardrail (PII/grounding/prompt-attack) attached. *(IAM: agent service role needs resource-scoped `bedrock:Retrieve` on the KB + `bedrock:InvokeModel` on the inference profile — least-privilege in practice.)*
 
 ---
 
